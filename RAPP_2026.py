@@ -21,6 +21,7 @@ import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 import openpyxl
+import re
 
 # Nessa primeira vez, não farei os passos 1 e 2, pois vou utilizar os dados prontos do Uanderson.
 # Nas próximas eu faço os passos 1 e 2.
@@ -83,8 +84,79 @@ total_duplicadas = df.duplicated(subset=['CPF_Padronizado', 'COMPONENTE CURRICUL
 total_duplicadas
 
 
-df_final = df.drop_duplicates(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR'], keep='first', ignore_index=True)
+df_sem_duplicata = df.drop_duplicates(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR'], keep='first', ignore_index=True)
 
+# 7. Conseguir informações de necessidades especiais por CPF em algum relatório;
+# Dataframe com os dados do relatório geral e padronização do CPF para cruzamento com o df_final
+df_rel_geral = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\Relatório Geral de Estudantes - Matrículas.xlsx", skiprows=2)
+
+# Padronizar CPF no relatório geral
+df_rel_geral['CPF_Padronizado'] = (
+    df_rel_geral['CPF']
+        .astype(str)
+        .str.replace(r'\D', '', regex=True)
+        .str.zfill(11)
+        .str.replace(
+            r'(\d{3})(\d{3})(\d{3})(\d{2})',
+            r'\1.\2.\3-\4',
+            regex=True
+        )
+)
+
+# 9. Incluir informações de necessidades especiais e turma na base principal;
+# Realiza merge dos dataframes
+# Relatório Geral de Matrículas tem CPFs duplicados
+total_duplicados = df_rel_geral['CPF_Padronizado'].duplicated().sum()
+print(f"Existem {total_duplicados} CPFs repetidos.")
+
+# Caso tenham vários valores para 'TUMA' e 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS' para um mesmo CPF, vamos manter a moda.
+# Função simples para retornar a moda (ou o primeiro valor caso haja empate)
+def pegar_moda(x):
+    m = x.mode()
+    return m.iloc[0] if not m.empty else None
+
+# Agrupamos pelo CPF e aplicamos a moda nas colunas desejadas
+df_rel_limpo = df_rel_geral.groupby('CPF_Padronizado').agg({
+    'TURMA': pegar_moda,
+    'TIPO NECESSIDADE ESPECÍFICA INFORMADAS': pegar_moda
+}).reset_index()
+
+
+# Merge para incluir as informações de turma e necessidades especiais na base principal
+df_final = df_sem_duplicata.merge(
+    df_rel_limpo, 
+    on='CPF_Padronizado', 
+    how='left'
+)
+
+# Trocar valores NaN por "-" em 'TURMA' e 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS'
+df_final['TURMA'] = df_final['TURMA'].fillna('-')
+df_final['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'] = df_final['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'].fillna('-')
+
+
+# 8. Conseguir informações de turno por CPF em algum relatório;
+# Turno será extraído de acordo com o código da turma.
+#  Criar a coluna de turno a partir do código da turma, considerando:
+
+# Garante que o df_final é um objeto independente (evita avisos do Pandas)
+df_final = df_final.copy()
+
+# Valor padrão
+df_final['TURNO'] = "Não Identificado"
+
+# Dicionário de mapeamento
+mapeamento = {
+    r'INT\d': 'Integral',
+    r'M\d': 'Matutino',
+    r'V\d': 'Vespertino',
+    r'N\d': 'Noturno'
+}
+
+# Aplicando a lógica
+for padrao, nome_turno in mapeamento.items():
+    # Usamos o .loc para garantir que a alteração ocorra no DataFrame original
+    mascara = df_final['TURMA'].astype(str).str.contains(padrao, case=True, na=False, regex=True)
+    df_final.loc[mascara, 'TURNO'] = nome_turno
 
 
 #################################### ANÁLISES ####################################
