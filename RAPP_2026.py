@@ -1,16 +1,18 @@
 '''
 Ideia Geral do código para identificação dos estudantes em RAPP em 2026:
-1. Utilizar dados de 2025 de estudantes em RAPP;
-2. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações da escola e DIREC dos estudantes;
-
-4. Deixar somente componentes da BNCC e estudantes dos Anos Finais Ensino Fundamental e Ensino Médio (6º ano EF até 3ª Série EM);
-5. Padronizar CPFs para não ter diferenças de formatação entre as bases;
-6. Excluir duplicatas da combinação de componente + CPF;
-7. Conseguir informações de necessidades especiais por CPF em algum relatório;
-8. Conseguir informações de turno por CPF em algum relatório;
-9. Incluir informações de necessidades especiais e turno na base principal;
-10. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
+. Utilizar Relatório Geral de Matrículas de 2025 para identificar estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL');
+. Padronizar CPFs na base de 2025 para cruzamento com a base de 2026;
+. Excluir valores indesejados de etapa, série;
+. Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
+. Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
+. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP.
+. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
+. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
+. Excluir duplicatas da combinação de componente + CPF;
+. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
 '''
+
+
 
 # Importação das bibliotecas
 import pandas as pd
@@ -23,42 +25,53 @@ warnings.filterwarnings('ignore')
 import openpyxl
 import re
 
-# Nessa primeira vez, não farei os passos 1 e 2, pois vou utilizar os dados prontos do Uanderson.
-# Nas próximas eu faço os passos 1 e 2.
+# . Utilizar Relatório Geral de Matrículas de 2025 para identificar estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL');
+# Dataframe com os dados do Relatório Geral de Matrículas de 2025
+df_geral_2025 = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\2025_Relatório Geral de Estudantes - Matrículas.xlsx", skiprows=2)
 
-# Usei a base do Uanderson da aba '2025' acrescentando as informações da aba 'NAO_ENCONTRADOS_POR_COMPONENTE'.
+# Excluir colunas que não são do interesse
+df_geral_2025 = df_geral_2025.drop(columns=[
+    'ANO',
+    'PERÍODO',
+    'MATRÍCULA',
+    'DATA DE EFETIVAÇÃO DA MATRÍCULA',
+    'NOME SOCIAL',
+    'ID_PESSOA',
+    'SEXO',
+    'NOME DA FILIAÇÃO 1',
+    'NOME DA FILIAÇÃO 2',
+    'NOME DO RESPONSÁVEL MATRÍCULA',
+    'DATA DE NASCIMENTO',
+    'NÚMERO DE IDENTIDADE',
+    'CÓDIGO NIS',
+    'CÓDIGO SUS',
+    'CÓDIGO INEP',
+    'ENDEREÇO',
+    'TELEFONES',
+    'E-MAIL INSTITUCIONAL',
+    'ID_UNIDADE_ESCOLA',
+    'ID_SEGMENTO',
+    'ID_SÉRIE',
+    'ID_TURMA',
+    'RESPÓNSÁVEL',
+    'MATRICULA SERVIDOR',
+    'LOGIN',
+    'ID_USUÁRIO',
+    'PARTICIPA PÉ DE MEIA',
+    'RAÇA / COR',
+    'UTILIZA TRANSPORTE ESCOLAR',
+    'TIPO DE TRANSPORTE ESCOLAR',
+    'TIPO'])
 
-# Extrair os dados de 2025 e 2026 em Excel e passar para dataframe
-df = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\20260430_RELATORIO DE ONDE ESTA O ESTUDANTE EM RAPP.xlsx", sheet_name="TOTAL RAPP")
+
+# Manter somente Estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL')
+df_geral_2025 = df_geral_2025[df_geral_2025['SITUAÇÃO'].isin(['PROGRESSÃO PARCIAL', 'APENAS PROG. PARCIAL'])]
 
 
-# Trocar nomenclatura das séries para padronizar:
-mapeamento = {
-    '6º Ano': '6º ANO',
-    '7º Ano': '7º ANO',
-    '8º Ano': '8º ANO',
-    '9º Ano': '9º ANO'
-}
-
-df['SÉRIE'] = df['SÉRIE'].replace(mapeamento)
-
-
-# Criar coluna de "ETAPA_RESUMIDA" para indicar Anos Finais ou Ensino Médio, de acordo com a série
-mapeamento_etapa = {
-    '1ª SÉRIE': 'Ensino Médio',
-    '2ª SÉRIE': 'Ensino Médio',
-    '3ª SÉRIE': 'Ensino Médio',
-    '6º ANO': 'Ens. Fund. - Anos Finais',
-    '7º ANO': 'Ens. Fund. - Anos Finais',
-    '8º ANO': 'Ens. Fund. - Anos Finais',
-    '9º ANO': 'Ens. Fund. - Anos Finais'
-}
-
-df['ETAPA_RESUMIDA'] = df['SÉRIE'].map(mapeamento_etapa)
-
+# . Padronizar CPFs na base de 2025 para cruzamento com a base de 2026;
 # Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
-df['CPF_Padronizado'] = (
-    df['CPF ALUNO']
+df_geral_2025['CPF_Padronizado'] = (
+    df_geral_2025['CPF']
         .astype(str)
         .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
         .str.zfill(11)                        # completa com zeros à esquerda
@@ -69,33 +82,52 @@ df['CPF_Padronizado'] = (
         )
 )
 
-# Excluir coluna 'CPF ALUNO' para só usar o 'CPF_Padronizado' e evitar confusão
-df = df.drop(columns=['CPF ALUNO'])
-
-# 4. Deixar somente componentes da BNCC e estudantes dos Anos Finais Ensino Fundamental e Ensino Médio (6º ano EF até 3ª Série EM);
-# Nesse caso já estão somente esses valores
-
-# 5. Padronizar CPFs para não ter diferenças de formatação entre as bases;
-# Já está padronizado e só usa 1 base
-
-# 6. Excluir duplicatas da combinação de componente + CPF
-# A base tem alguns erros de mesmo estudante em séries e escolas diferentes
-total_duplicadas = df.duplicated(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR']).sum()
-total_duplicadas
+# Excluir coluna 'CPF' para só usar o 'CPF_Padronizado' e evitar confusão
+df_geral_2025 = df_geral_2025.drop(columns=['CPF'])
 
 
-df_sem_duplicata = df.drop_duplicates(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR'], keep='first', ignore_index=True)
+# Verificar se tem CPFs duplicados (se sim, será mantido o com 'Data da Operação' mais recente)
+total_duplicados = df_geral_2025['CPF_Padronizado'].duplicated().sum()
+print(f"Total de registros duplicados: {total_duplicados}")
 
-# 7. Conseguir informações de necessidades especiais por CPF em algum relatório;
-# Dataframe com os dados do relatório geral e padronização do CPF para cruzamento com o df_final
-df_rel_geral = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\Relatório Geral de Estudantes - Matrículas.xlsx", skiprows=2)
+# Exclusão de CPFs duplicados, mantendo o valor mais recente baseado na 'DATA DA OPERAÇÃO'
+# Converter a coluna de data para datetime
+df_geral_2025['DATA DA OPERAÇÃO'] = pd.to_datetime(df_geral_2025['DATA DA OPERAÇÃO'], errors='coerce')
 
-# Padronizar CPF no relatório geral
-df_rel_geral['CPF_Padronizado'] = (
-    df_rel_geral['CPF']
+# Ordenar do mais recente para o mais antigo
+df_geral_2025 = df_geral_2025.sort_values('DATA DA OPERAÇÃO', ascending=False)
+
+# Remover CPFs duplicados, mantendo o registro mais recente
+df_geral_2025 = df_geral_2025.drop_duplicates(subset='CPF_Padronizado', keep='first')
+
+
+# .Excluir valores indesejados de etapa, série
+# Como também contabiliza EPT, não será feito exclusão a partir dovalor da SÉRIE
+# Excluir etapas de ensino indesejadas (EJA e EJATEC)
+# Lista de valores a removar para ETAPA DE ENSINO
+etapas_remover = [
+    'EJA - ENSINO MÉDIO',
+    'ENSINO FUND. 2º SEGMENTO (ANOS FINAIS) - EDUCAÇÃO DE JOVENS E ADULTOS',
+    'EJA - ENS FUNDAMENTAL - 2º SEGMENTO ANUAL',
+    'CURSO TÉCNICO DE NÍVEL MÉDIO EM ADMINISTRAÇÃO NA FORMA ARTICULADA INTEGRADA A EDUCAÇÃO DE JOVENS E ADULTOS - EJATEC',
+    'FUNDAMENTAL ANOS FINAIS - EJA',
+    'CURSO TÉCNICO DE NÍVEL MÉDIO EM LOGÍSTICA NA FORMA ARTICULADA INTEGRADA A EDUCAÇÃO DE JOVENS E ADULTOS - EJATEC'
+]
+
+# Excluir os registros que possuem as etapas de ensino indesejadas
+df_geral_2025 = df_geral_2025[~df_geral_2025['ETAPA DE ENSINO'].isin(etapas_remover)]
+
+
+# Dataframe com os dados do Relatório Geral de Matrículas de 2026
+df_geral_2026 = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\2026_Relatório Geral de Estudantes - Matrículas.xlsx", skiprows=2)
+
+# . Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
+# Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
+df_geral_2026['CPF_Padronizado'] = (
+    df_geral_2026['CPF']
         .astype(str)
-        .str.replace(r'\D', '', regex=True)
-        .str.zfill(11)
+        .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
+        .str.zfill(11)                        # completa com zeros à esquerda
         .str.replace(
             r'(\d{3})(\d{3})(\d{3})(\d{2})',
             r'\1.\2.\3-\4',
@@ -103,65 +135,261 @@ df_rel_geral['CPF_Padronizado'] = (
         )
 )
 
-# 9. Incluir informações de necessidades especiais e turma na base principal;
-# Realiza merge dos dataframes
-# Relatório Geral de Matrículas tem CPFs duplicados
-total_duplicados = df_rel_geral['CPF_Padronizado'].duplicated().sum()
-print(f"Existem {total_duplicados} CPFs repetidos.")
+# Excluir coluna 'CPF' para só usar o 'CPF_Padronizado' e evitar confusão
+df_geral_2026 = df_geral_2026.drop(columns=['CPF'])
 
-# Caso tenham vários valores para 'TUMA' e 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS' para um mesmo CPF, vamos manter a moda.
-# Função simples para retornar a moda (ou o primeiro valor caso haja empate)
-def pegar_moda(x):
-    m = x.mode()
-    return m.iloc[0] if not m.empty else None
+# Excluir colunas que não são do interesse
+df_geral_2026 = df_geral_2026.drop(columns=[
+    'ANO',
+    'PERÍODO',
+    'MATRÍCULA',
+    'DATA DE EFETIVAÇÃO DA MATRÍCULA',
+    'NOME SOCIAL',
+    'ID_PESSOA',
+    'SEXO',
+    'NOME DA FILIAÇÃO 1',
+    'NOME DA FILIAÇÃO 2',
+    'NOME DO RESPONSÁVEL MATRÍCULA',
+    'DATA DE NASCIMENTO',
+    'NÚMERO DE IDENTIDADE',
+    'CÓDIGO NIS',
+    'CÓDIGO SUS',
+    'CÓDIGO INEP',
+    'ENDEREÇO',
+    'TELEFONES',
+    'E-MAIL INSTITUCIONAL',
+    'ID_UNIDADE_ESCOLA',
+    'ID_SEGMENTO',
+    'ID_SÉRIE',
+    'ID_TURMA',
+    'RESPÓNSÁVEL',
+    'MATRICULA SERVIDOR',
+    'LOGIN',
+    'ID_USUÁRIO',
+    'PARTICIPA PÉ DE MEIA',
+    'RAÇA / COR',
+    'UTILIZA TRANSPORTE ESCOLAR',
+    'TIPO DE TRANSPORTE ESCOLAR',
+    'TIPO'])
 
-# Agrupamos pelo CPF e aplicamos a moda nas colunas desejadas
-df_rel_limpo = df_rel_geral.groupby('CPF_Padronizado').agg({
-    'TURMA': pegar_moda,
-    'TIPO NECESSIDADE ESPECÍFICA INFORMADAS': pegar_moda
-}).reset_index()
+# Verificar se tem CPFs duplicados (se sim, será mantido o com 'Data da Operação' mais recente)
+total_duplicados = df_geral_2026['CPF_Padronizado'].duplicated().sum()
+print(f"Total de registros duplicados: {total_duplicados}")
+
+# Exclusão de CPFs duplicados, mantendo o valor mais recente baseado na 'DATA DA OPERAÇÃO'
+# Converter a coluna de data para datetime
+df_geral_2026['DATA DA OPERAÇÃO'] = pd.to_datetime(df_geral_2026['DATA DA OPERAÇÃO'], errors='coerce')  # Coerce para lidar com datas inválidas, se houver
+
+# Ordenar do mais recente para o mais antigo
+df_geral_2026 = df_geral_2026.sort_values('DATA DA OPERAÇÃO', ascending=False)
+
+# Remover CPFs duplicados, mantendo o registro mais recente
+df_geral_2026 = df_geral_2026.drop_duplicates(subset='CPF_Padronizado', keep='first')
 
 
-# Merge para incluir as informações de turma e necessidades especiais na base principal
-df_final = df_sem_duplicata.merge(
-    df_rel_limpo, 
+# Relatórios de Notas 2025
+# caminho da pasta onde estão os arquivos
+pasta = r"C:\Users\hugob\Downloads\Notas"
+
+# lista todos os arquivos .xlsx da pasta
+arquivos = glob.glob(os.path.join(pasta, "*.xlsx"))
+
+# lista para armazenar os dataframes
+dfs = []
+
+for arquivo in tqdm(arquivos, desc="Processando arquivos"):
+    # lê cada arquivo, pulando as 2 primeiras linhas
+    df_unico = pd.read_excel(arquivo, skiprows=2)
+    dfs.append(df_unico)
+
+# concatena todos em um único dataframe
+df_notas = pd.concat(dfs, ignore_index=True)
+
+# Manter somente os componentes curriculares reprovados (RESULTADO FINAL = 'REPROVADO')
+df_notas = df_notas[df_notas['RESULTADO FINAL'] == 'REPROVADO']
+
+# . Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
+# Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
+df_notas['CPF_Padronizado'] = (
+    df_notas['CPF PESSOA']
+        .astype(str)
+        .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
+        .str.zfill(11)                        # completa com zeros à esquerda
+        .str.replace(
+            r'(\d{3})(\d{3})(\d{3})(\d{2})',
+            r'\1.\2.\3-\4',
+            regex=True
+        )
+)
+
+# Excluir coluna 'CPF PESSOA' para só usar o 'CPF_Padronizado' e evitar confusão
+df_notas = df_notas.drop(columns=['CPF PESSOA'])
+
+
+# Excluir colunas que não são do interesse
+df_notas = df_notas.drop(columns=[
+    'ID DIREC',
+    'ID MUNICÍPIO',
+    'ID ETAPA ENSINO',
+    'PERIODICIDADE ETAPA ENSINO',
+    'ID SÉRIE',
+    'ID TURMA',
+    'ID PESSOA (PROFESSOR)',
+    'MATRICULA (PROFESSOR)',
+    'VÍNCULO',
+    'NOME DO PROFESSOR',
+    'DATA INÍCIO ALOCAÇÃO',
+    'DATA FIM ALOCAÇÃO',
+    'ID COMPONENTE CURRICULAR',
+    'PERIODICIDADE COMPONENTE CURRICULAR',
+    'ID PESSOA',
+    'MATRÍCULA ESTUDANTE',
+    'APROVEITAMENTO DE ESTUDO',
+    'NOTA 1º BIMESTRE',
+    'NOTA 2º BIMESTRE',
+    'NOTA 3º BIMESTRE',
+    'NOTA 4º BIMESTRE',
+    'EXAME FINAL',
+    'AVALIAÇÃO ESPECIAL'
+])
+
+
+# . Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP.
+# Selecionar somente acoluna de CPF e componente curricular para fazer o merge
+colunas_notas = ['CPF_Padronizado', 'COMPONENTE CURRICULAR']
+
+# Merge para incluir os componentes curriculares reprovados na base de estudantes em RAPP 2025
+df_final = pd.merge(
+    df_geral_2025, 
+    df_notas[colunas_notas], 
     on='CPF_Padronizado', 
     how='left'
 )
 
-# Trocar valores NaN por "-" em 'TURMA' e 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS'
-df_final['TURMA'] = df_final['TURMA'].fillna('-')
-df_final['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'] = df_final['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'].fillna('-')
+# Ordenar para componentes de cada estudante ficarem juntos
+df_final = df_final.sort_values(by=['CPF_Padronizado', 'COMPONENTE CURRICULAR'])
+
+# Verificar quantas linhas tem com Componente Curricular nulo (estudantes sem componente reprovado)
+total_nulos = df_final['COMPONENTE CURRICULAR'].isna().sum()
+print(f"Quantidade de linhas com Componente Curricular nulo: {total_nulos}")
+# Tem estudantes que estão como Progressão Parcial no relatório geral de matrículas 2025, mas não apresentam componentes curriculares reprovados no relatório de notas
+
+# . Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
+# Criar uma lista de todos os CPFs que aparecem no relatório de 2026
+cpfs_2026 = df_geral_2026['CPF_Padronizado'].unique()
+
+# Estudantes que estão no df_final mas NÃO aparecem em 2026
+estudantes_nao_encontrados = df_final[~df_final['CPF_Padronizado'].isin(cpfs_2026)]
+
+# Estudantes que estão no df_final, aparecem em 2026, mas com situação de saída
+situacoes_saida = ['CANCELADO', 'TRANSFERIDO', 'DEIXOU DE FREQUENTAR']
+
+# CPFs em 2026 com status de saída
+cpfs_saida_2026 = df_geral_2026[df_geral_2026['SITUAÇÃO'].isin(situacoes_saida)]['CPF_Padronizado']
+
+# Estudantes do df_final em situação de saída
+estudantes_saida = df_final[df_final['CPF_Padronizado'].isin(cpfs_saida_2026)]
+
+# Concatenar os dois perfis
+df_revisar = pd.concat([estudantes_nao_encontrados, estudantes_saida])
+
+# Salvar em Excel
+df_revisar.to_excel("estudantes_para_remover_ou_revisar.xlsx", index=False)
 
 
-# 8. Conseguir informações de turno por CPF em algum relatório;
-# Turno será extraído de acordo com o código da turma.
-#  Criar a coluna de turno a partir do código da turma, considerando:
+# Remover esses estudantes do df_final
+df_final = df_final[~df_final['CPF_Padronizado'].isin(df_revisar['CPF_Padronizado'])]
 
-# Garante que o df_final é um objeto independente (evita avisos do Pandas)
-df_final = df_final.copy()
 
-# Valor padrão
-df_final['TURNO'] = "Não Identificado"
+# . Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
+# Colunas para atualizar
+colunas_atualizar = ['DIREC', 'CÓDIGO INEP ESCOLA', 'ESCOLA', 'TURMA']
 
-# Dicionário de mapeamento
+# Dataframe de referência para atualização, com CPF como índice
+df_ref_2026 = df_geral_2026.set_index('CPF_Padronizado')[colunas_atualizar]
+
+# Atualização do df_final com os valores de 2026 para DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA
+for coluna in colunas_atualizar:
+    df_final[coluna] = df_final['CPF_Padronizado'].map(df_ref_2026[coluna]).fillna(df_final[coluna])
+
+
+# Trocar nomenclatura das séries para padronizar:
 mapeamento = {
-    r'INT\d': 'Integral',
-    r'M\d': 'Matutino',
-    r'V\d': 'Vespertino',
-    r'N\d': 'Noturno'
+    '6º Ano': '6º ANO',
+    '7º Ano': '7º ANO',
+    '8º Ano': '8º ANO',
+    '9º Ano': '9º ANO'
 }
 
-# Aplicando a lógica
-for padrao, nome_turno in mapeamento.items():
-    # Usamos o .loc para garantir que a alteração ocorra no DataFrame original
-    mascara = df_final['TURMA'].astype(str).str.contains(padrao, case=True, na=False, regex=True)
-    df_final.loc[mascara, 'TURNO'] = nome_turno
+df_final['SÉRIE'] = df_final['SÉRIE'].replace(mapeamento)
 
+
+# . Excluir duplicatas da combinação de componente + CPF;
+total_duplicados = df_final.duplicated(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR']).sum()
+total_duplicados
+
+# Remover asociação de CPF + Componente Curricular duplicada, mantendo o primeiro registro encontrado
+df_final = df_final.drop_duplicates(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR'], keep='first')
+
+# Criar a coluna 'ETAPA_RESUMIDA' a partir da SÉRIE
+mapeamento_etapa = {
+    '1ª SÉRIE': 'Ensino Médio',
+    '2ª SÉRIE': 'Ensino Médio',
+    '3ª SÉRIE': 'Ensino Médio',
+    '1º PERÍODO': 'Ensino Médio',
+    '2º PERÍODO': 'Ensino Médio',
+    '3º PERÍODO': 'Ensino Médio',
+    '1º SEMESTRE': 'Ensino Médio',
+    '2º SEMESTRE': 'Ensino Médio',
+    'TURMA II (8° E 9° ANOS)': 'Ens. Fund. - Anos Finais',
+    '6º ANO': 'Ens. Fund. - Anos Finais',
+    '7º ANO': 'Ens. Fund. - Anos Finais',
+    '8º ANO': 'Ens. Fund. - Anos Finais',
+    '9º ANO': 'Ens. Fund. - Anos Finais'
+}
+
+df_final['ETAPA_RESUMIDA'] = df_final['SÉRIE'].map(mapeamento_etapa)
+
+# Criar a coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC e EPT
+df_final['CATEGORIA_COMPONENTE'] = df_final['COMPONENTE CURRICULAR'].apply(lambda x: 'BNCC' if x.startswith('BNCC') else 'EPT')
+
+
+# Criar coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC e EPT
+# Componentes da BNCC
+lista_bncc = [
+    'Matemática',
+    'Física',
+    'Química',
+    'Língua Portuguesa',
+    'História', 
+    'Biologia',
+    'Geografia',
+    'Língua Inglesa',
+    'Sociologia', 
+    'Língua Espanhola',
+    'Arte',
+    'Filosofia',
+    'Ciências', 
+    'Educação Física',
+    'Ensino Religioso'
+]
+
+# Criar a nova variável 'CATEGORIA_COMPONENTE' com base na lista de componentes da BNCC (caso não seja BNCC, classificado como EPT)
+df_final['CATEGORIA_COMPONENTE'] = np.where(
+    df_final['COMPONENTE CURRICULAR'].isin(lista_bncc), 
+    'BNCC', 
+    'EPT'
+)
+
+# Para os estudantes sem identificação do componente curricular (NaN), colocar "Não Identificado"
+df_final['COMPONENTE CURRICULAR'] = df_final['COMPONENTE CURRICULAR'].fillna('Não Identificado')
+
+
+# . Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
 
 #################################### ANÁLISES ####################################
 # Estudantes por DIREC
-# Contagem de CPF_PAdronizado distinto por DIREC
+# Contagem de CPF_Padronizado distinto por DIREC
 direc = df_final.groupby('DIREC')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 direc
 
@@ -185,6 +413,9 @@ serie
 total_serie = serie['Quantidade de Estudantes Distintos'].sum()
 total_serie
 
+# Estudantes por tipo de Necessidade Especial
+necessidade_especial = df_final.groupby('TIPO NECESSIDADE ESPECÍFICA INFORMADAS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_especial
 
 # Estudante por Série em cada DIREC
 serie_direc = df_final.groupby(['DIREC', 'SÉRIE'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
@@ -201,24 +432,27 @@ componente_serie = df_final.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Pa
 componente_serie
 
 
+# Necessidade Especial por DIREC
+necessidade_direc = df_final.groupby(['DIREC', 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_direc
+
 # Estudante por Componente, por Série e por DIREC
 componente_serie_direc = df_final.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 componente_serie_direc
 
 
-
-
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260508_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260513_analises_RAPP.xlsx") as writer:
     df_final.to_excel(writer, sheet_name='Base RAPP', index=False)
     direc.to_excel(writer, sheet_name='DIREC', index=False)
     componente.to_excel(writer, sheet_name='Componente', index=False)
     serie.to_excel(writer, sheet_name='Serie', index=False)
+    necessidade_especial.to_excel(writer, sheet_name='Neces. Especial', index=False)
     serie_direc.to_excel(writer, sheet_name='Serie e DIREC', index=False)
     componente_direc.to_excel(writer, sheet_name='Componente e DIREC', index=False)
     componente_serie.to_excel(writer, sheet_name='Componente e Serie', index=False)
+    necessidade_direc.to_excel(writer, sheet_name='Neces. Especial e DIREC', index=False)
     componente_serie_direc.to_excel(writer, sheet_name='Componente, Serie e DIREC', index=False)
-
 
 
 
