@@ -1,18 +1,16 @@
 '''
 Ideia Geral do código para identificação dos estudantes em RAPP em 2026:
-. Utilizar Relatório Geral de Matrículas de 2025 para identificar estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL');
-. Padronizar CPFs na base de 2025 para cruzamento com a base de 2026;
-. Excluir valores indesejados de etapa, série;
-. Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
-. Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
-. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP.
-. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
-. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
-. Excluir duplicatas da combinação de componente + CPF;
-. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
+1. Utilizar Relatório Geral de Matrículas de 2025 para identificar estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL');
+2. Padronizar CPFs na base de 2025 para cruzamento com a base de 2026;
+3. Excluir valores indesejados de etapa;
+4. Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
+5. Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
+6. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP.
+7. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
+8. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
+9. Excluir duplicatas da combinação de componente + CPF;
+10. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
 '''
-
-
 
 # Importação das bibliotecas
 import pandas as pd
@@ -25,7 +23,7 @@ warnings.filterwarnings('ignore')
 import openpyxl
 import re
 
-# . Utilizar Relatório Geral de Matrículas de 2025 para identificar estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL');
+# 1. Utilizar Relatório Geral de Matrículas de 2025 para identificar estudantes em RAPP (SITUAÇÃO = 'PROGRESSÃO PARCIAL' e 'APENAS PROG. PARCIAL');
 # Dataframe com os dados do Relatório Geral de Matrículas de 2025
 df_geral_2025 = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\2025_Relatório Geral de Estudantes - Matrículas.xlsx", skiprows=2)
 
@@ -68,7 +66,7 @@ df_geral_2025 = df_geral_2025.drop(columns=[
 df_geral_2025 = df_geral_2025[df_geral_2025['SITUAÇÃO'].isin(['PROGRESSÃO PARCIAL', 'APENAS PROG. PARCIAL'])]
 
 
-# . Padronizar CPFs na base de 2025 para cruzamento com a base de 2026;
+# 2. Padronizar CPFs na base de 2025 para cruzamento com a base de 2026;
 # Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
 df_geral_2025['CPF_Padronizado'] = (
     df_geral_2025['CPF']
@@ -101,8 +99,8 @@ df_geral_2025 = df_geral_2025.sort_values('DATA DA OPERAÇÃO', ascending=False)
 df_geral_2025 = df_geral_2025.drop_duplicates(subset='CPF_Padronizado', keep='first')
 
 
-# .Excluir valores indesejados de etapa, série
-# Como também contabiliza EPT, não será feito exclusão a partir dovalor da SÉRIE
+# 3. Excluir valores indesejados de etapa
+# Como também contabiliza EPT, não será feito exclusão a partir do valor da SÉRIE
 # Excluir etapas de ensino indesejadas (EJA e EJATEC)
 # Lista de valores a removar para ETAPA DE ENSINO
 etapas_remover = [
@@ -121,7 +119,7 @@ df_geral_2025 = df_geral_2025[~df_geral_2025['ETAPA DE ENSINO'].isin(etapas_remo
 # Dataframe com os dados do Relatório Geral de Matrículas de 2026
 df_geral_2026 = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\2026_Relatório Geral de Estudantes - Matrículas.xlsx", skiprows=2)
 
-# . Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
+# 4. Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
 # Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
 df_geral_2026['CPF_Padronizado'] = (
     df_geral_2026['CPF']
@@ -208,7 +206,7 @@ df_notas = pd.concat(dfs, ignore_index=True)
 # Manter somente os componentes curriculares reprovados (RESULTADO FINAL = 'REPROVADO')
 df_notas = df_notas[df_notas['RESULTADO FINAL'] == 'REPROVADO']
 
-# . Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
+# 5. Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
 # Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
 df_notas['CPF_Padronizado'] = (
     df_notas['CPF PESSOA']
@@ -254,7 +252,7 @@ df_notas = df_notas.drop(columns=[
 ])
 
 
-# . Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP.
+# 6. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP 2025.
 # Selecionar somente acoluna de CPF e componente curricular para fazer o merge
 colunas_notas = ['CPF_Padronizado', 'COMPONENTE CURRICULAR']
 
@@ -274,7 +272,11 @@ total_nulos = df_final['COMPONENTE CURRICULAR'].isna().sum()
 print(f"Quantidade de linhas com Componente Curricular nulo: {total_nulos}")
 # Tem estudantes que estão como Progressão Parcial no relatório geral de matrículas 2025, mas não apresentam componentes curriculares reprovados no relatório de notas
 
-# . Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
+# Para os estudantes sem identificação do componente curricular (NaN), colocar "Não Identificado"
+df_final['COMPONENTE CURRICULAR'] = df_final['COMPONENTE CURRICULAR'].fillna('Não Identificado')
+
+
+# 7. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
 # Criar uma lista de todos os CPFs que aparecem no relatório de 2026
 cpfs_2026 = df_geral_2026['CPF_Padronizado'].unique()
 
@@ -301,7 +303,7 @@ df_revisar.to_excel("estudantes_para_remover_ou_revisar.xlsx", index=False)
 df_final = df_final[~df_final['CPF_Padronizado'].isin(df_revisar['CPF_Padronizado'])]
 
 
-# . Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
+# 8. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
 # Colunas para atualizar
 colunas_atualizar = ['DIREC', 'CÓDIGO INEP ESCOLA', 'ESCOLA', 'TURMA']
 
@@ -324,7 +326,7 @@ mapeamento = {
 df_final['SÉRIE'] = df_final['SÉRIE'].replace(mapeamento)
 
 
-# . Excluir duplicatas da combinação de componente + CPF;
+# 9. Excluir duplicatas da combinação de componente + CPF;
 total_duplicados = df_final.duplicated(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR']).sum()
 total_duplicados
 
@@ -350,9 +352,6 @@ mapeamento_etapa = {
 
 df_final['ETAPA_RESUMIDA'] = df_final['SÉRIE'].map(mapeamento_etapa)
 
-# Criar a coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC e EPT
-df_final['CATEGORIA_COMPONENTE'] = df_final['COMPONENTE CURRICULAR'].apply(lambda x: 'BNCC' if x.startswith('BNCC') else 'EPT')
-
 
 # Criar coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC e EPT
 # Componentes da BNCC
@@ -369,6 +368,7 @@ lista_bncc = [
     'Língua Espanhola',
     'Arte',
     'Filosofia',
+    'Educação Física',
     'Ciências', 
     'Educação Física',
     'Ensino Religioso'
@@ -381,11 +381,8 @@ df_final['CATEGORIA_COMPONENTE'] = np.where(
     'EPT'
 )
 
-# Para os estudantes sem identificação do componente curricular (NaN), colocar "Não Identificado"
-df_final['COMPONENTE CURRICULAR'] = df_final['COMPONENTE CURRICULAR'].fillna('Não Identificado')
 
-
-# . Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
+# 10. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
 
 #################################### ANÁLISES ####################################
 # Estudantes por DIREC
