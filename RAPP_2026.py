@@ -382,6 +382,68 @@ df_final['CATEGORIA_COMPONENTE'] = np.where(
 )
 
 
+# Criar a nova variável 'CATEGORIA_NECESSIDADES ESPECIAIS' para agrupar os tipos de necessidades especiais
+# Lista de tipos de necessidades especiais para cada categoria
+categorias_necessidades_especiais = {
+    'Altas habilidades/superdotação': 'Transtorno do Neurodesenvolvimento',
+    'Transtorno de Déficit de Atenção e Hiperatividade (TDAH)': 'Transtorno do Neurodesenvolvimento',
+    'Transtorno do Espectro Autista (TEA)': 'Transtorno do Neurodesenvolvimento',
+    'Baixa visão': 'Deficiência Visual',
+    'Baixa audição': 'Deficiência Auditiva',
+    'Surdez': 'Deficiência Auditiva',
+    'Discalculia': 'Transtorno do Neurodesenvolvimento',
+    'Disgrafia': 'Transtorno do Neurodesenvolvimento',
+    'Deficiência Auditiva': 'Deficiência Auditiva',
+    'Deficiência física': 'Deficiência Física',
+    'Deficiência intelectual': 'Deficiência Intelectual',
+    'Deficiência múltipla': 'Deficiência Múltipla',
+    'Deficiência intelectual': 'Deficiência Intelectual',
+    'Visão monocular': 'Deficiência Visual',
+    'Cegueira': 'Deficiência Visual',
+    'Perda de visão periférica': 'Deficiência Visual',
+    'Paraplegia': 'Deficiência Física',
+    'Tetraplegia': 'Deficiência Física',
+    'Hemiegia': 'Deficiência Física',
+    'Paralisia cerebral': 'Deficiência Física',
+    'Amputações e deformidades congênitas': 'Deficiência Física',
+    'Síndrone de down': 'Deficiência Intelectual',
+    'Síndromes genéticas': 'Deficiência Intelectual',
+    'Dislexia': 'Transtorno do Neurodesenvolvimento',
+    'Dislalia': 'Transtorno do Neurodesenvolvimento',
+    'Disortografia': 'Transtorno do Neurodesenvolvimento'
+}
+
+def classificar_necessidade_especial(texto):
+    # Trata valores nulos ou vazios
+    if pd.isna(texto) or str(texto).strip() in ["", "-", "NÃO INFORMADO"]:
+        return "Sem necessidade especial informada"
+    
+    texto = str(texto).strip()
+
+    # Caso 1: A linha é exatamente igual a uma das chaves do mapeamento
+    if texto in categorias_necessidades_especiais:
+        return categorias_necessidades_especiais[texto]
+    
+    # Caso 2: Se não é uma opção única, verificar se existem múltiplas opções conhecidas dentro do texto
+    # Contar quantas chaves do dicionário estão presentes na string
+    opcoes_encontradas = [opcao for opcao in categorias_necessidades_especiais.keys() if opcao in texto]
+    
+    if len(opcoes_encontradas) > 1:
+        return "Deficiência Múltipla"
+    
+    # Caso 3: Se encontrou apenas uma (mas talvez com algum caractere extra ou espaço diferente)
+    if len(opcoes_encontradas) == 1:
+        return categorias_necessidades_especiais[opcoes_encontradas[0]]
+
+    return "Outra Categoria / Não Mapeado"
+
+# 2. Aplicar a nova função
+df_final['CATEGORIA_NECESSIDADES ESPECIAIS'] = df_final['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'].apply(classificar_necessidade_especial)
+
+
+df_final['CATEGORIA_NECESSIDADES ESPECIAIS'].value_counts()
+
+
 # 10. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
 
 #################################### ANÁLISES ####################################
@@ -411,7 +473,7 @@ total_serie = serie['Quantidade de Estudantes Distintos'].sum()
 total_serie
 
 # Estudantes por tipo de Necessidade Especial
-necessidade_especial = df_final.groupby('TIPO NECESSIDADE ESPECÍFICA INFORMADAS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_especial = df_final.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_especial
 
 # Estudante por Série em cada DIREC
@@ -430,7 +492,7 @@ componente_serie
 
 
 # Necessidade Especial por DIREC
-necessidade_direc = df_final.groupby(['DIREC', 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_direc = df_final.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_direc
 
 # Estudante por Componente, por Série e por DIREC
@@ -439,7 +501,7 @@ componente_serie_direc
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260513_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_analises_RAPP.xlsx") as writer:
     df_final.to_excel(writer, sheet_name='Base RAPP', index=False)
     direc.to_excel(writer, sheet_name='DIREC', index=False)
     componente.to_excel(writer, sheet_name='Componente', index=False)
@@ -476,7 +538,7 @@ serie_bncc
 
 
 # Estudantes por tipo de Necessidade Especial
-necessidade_especial_bncc = df_bncc.groupby('TIPO NECESSIDADE ESPECÍFICA INFORMADAS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_especial_bncc = df_bncc.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_especial_bncc
 
 # Estudante por Série em cada DIREC
@@ -495,7 +557,7 @@ componente_serie_bncc
 
 
 # Necessidade Especial por DIREC
-necessidade_direc_bncc = df_bncc.groupby(['DIREC', 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_direc_bncc = df_bncc.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_direc_bncc
 
 # Estudante por Componente, por Série e por DIREC
@@ -504,7 +566,7 @@ componente_serie_direc_bncc
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260513_BNCC_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_BNCC_analises_RAPP.xlsx") as writer:
     df_bncc.to_excel(writer, sheet_name='BNCC_Base RAPP', index=False)
     direc_bncc.to_excel(writer, sheet_name='BNCC_DIREC', index=False)
     componente_bncc.to_excel(writer, sheet_name='BNCC_Componente', index=False)
@@ -542,7 +604,7 @@ serie_ept
 
 
 # Estudantes por tipo de Necessidade Especial
-necessidade_especial_ept = df_ept.groupby('TIPO NECESSIDADE ESPECÍFICA INFORMADAS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_especial_ept = df_ept.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_especial_ept
 
 # Estudante por Série em cada DIREC
@@ -561,7 +623,7 @@ componente_serie_ept
 
 
 # Necessidade Especial por DIREC
-necessidade_direc_ept = df_ept.groupby(['DIREC', 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+necessidade_direc_ept = df_ept.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_direc_ept
 
 # Estudante por Componente, por Série e por DIREC
@@ -570,7 +632,7 @@ componente_serie_direc_ept
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260513_EPT_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_EPT_analises_RAPP.xlsx") as writer:
     df_ept.to_excel(writer, sheet_name='EPT_Base RAPP', index=False)
     direc_ept.to_excel(writer, sheet_name='EPT_DIREC', index=False)
     componente_ept.to_excel(writer, sheet_name='EPT_Componente', index=False)
