@@ -109,7 +109,8 @@ etapas_remover = [
     'EJA - ENS FUNDAMENTAL - 2º SEGMENTO ANUAL',
     'CURSO TÉCNICO DE NÍVEL MÉDIO EM ADMINISTRAÇÃO NA FORMA ARTICULADA INTEGRADA A EDUCAÇÃO DE JOVENS E ADULTOS - EJATEC',
     'FUNDAMENTAL ANOS FINAIS - EJA',
-    'CURSO TÉCNICO DE NÍVEL MÉDIO EM LOGÍSTICA NA FORMA ARTICULADA INTEGRADA A EDUCAÇÃO DE JOVENS E ADULTOS - EJATEC'
+    'CURSO TÉCNICO DE NÍVEL MÉDIO EM LOGÍSTICA NA FORMA ARTICULADA INTEGRADA A EDUCAÇÃO DE JOVENS E ADULTOS - EJATEC',
+    'TÉCNICO DE NÍVEL MÉDIO EM ADMINISTRAÇÃO NA FORMA ARTICULADA INTEGRADA À EDUCAÇÃO DE JOVENS E ADULTOS - EJATEC'
 ]
 
 # Excluir os registros que possuem as etapas de ensino indesejadas
@@ -333,14 +334,12 @@ total_duplicados
 # Remover asociação de CPF + Componente Curricular duplicada, mantendo o primeiro registro encontrado
 df_final = df_final.drop_duplicates(subset=['CPF_Padronizado', 'COMPONENTE CURRICULAR'], keep='first')
 
+
 # Criar a coluna 'ETAPA_RESUMIDA' a partir da SÉRIE
 mapeamento_etapa = {
     '1ª SÉRIE': 'Ensino Médio',
     '2ª SÉRIE': 'Ensino Médio',
     '3ª SÉRIE': 'Ensino Médio',
-    '1º PERÍODO': 'Ensino Médio',
-    '2º PERÍODO': 'Ensino Médio',
-    '3º PERÍODO': 'Ensino Médio',
     '1º SEMESTRE': 'Ensino Médio',
     '2º SEMESTRE': 'Ensino Médio',
     'TURMA II (8° E 9° ANOS)': 'Ens. Fund. - Anos Finais',
@@ -501,7 +500,7 @@ componente_serie_direc
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260515_analises_RAPP.xlsx") as writer:
     df_final.to_excel(writer, sheet_name='Base RAPP', index=False)
     direc.to_excel(writer, sheet_name='DIREC', index=False)
     componente.to_excel(writer, sheet_name='Componente', index=False)
@@ -566,7 +565,7 @@ componente_serie_direc_bncc
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_BNCC_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260515_BNCC_analises_RAPP.xlsx") as writer:
     df_bncc.to_excel(writer, sheet_name='BNCC_Base RAPP', index=False)
     direc_bncc.to_excel(writer, sheet_name='BNCC_DIREC', index=False)
     componente_bncc.to_excel(writer, sheet_name='BNCC_Componente', index=False)
@@ -632,7 +631,7 @@ componente_serie_direc_ept
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_EPT_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260515_EPT_analises_RAPP.xlsx") as writer:
     df_ept.to_excel(writer, sheet_name='EPT_Base RAPP', index=False)
     direc_ept.to_excel(writer, sheet_name='EPT_DIREC', index=False)
     componente_ept.to_excel(writer, sheet_name='EPT_Componente', index=False)
@@ -643,5 +642,14 @@ with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260514_EPT_analises_RAPP
     componente_serie_ept.to_excel(writer, sheet_name='EPT_Componente e Serie', index=False)
     necessidade_direc_ept.to_excel(writer, sheet_name='EPT_Neces. Especial e DIREC', index=False)
     componente_serie_direc_ept.to_excel(writer, sheet_name='EPT_Componente, Serie e DIREC', index=False)
+
+
+
+
+
+
+
+
+
 
 
