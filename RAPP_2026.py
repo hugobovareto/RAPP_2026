@@ -71,6 +71,7 @@ df_geral_2025 = df_geral_2025[df_geral_2025['SITUAÇÃO'].isin(['PROGRESSÃO PAR
 df_geral_2025['CPF_Padronizado'] = (
     df_geral_2025['CPF']
         .astype(str)
+        .str.replace(r'\.0$', '', regex=True)   # REMOVE O ".0" DO FINAL (caso seja float)
         .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
         .str.zfill(11)                        # completa com zeros à esquerda
         .str.replace(
@@ -125,6 +126,7 @@ df_geral_2026 = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\2026_Relatório 
 df_geral_2026['CPF_Padronizado'] = (
     df_geral_2026['CPF']
         .astype(str)
+        .str.replace(r'\.0$', '', regex=True)   # REMOVE O ".0" DO FINAL (caso seja float)
         .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
         .str.zfill(11)                        # completa com zeros à esquerda
         .str.replace(
@@ -204,6 +206,14 @@ for arquivo in tqdm(arquivos, desc="Processando arquivos"):
 # concatena todos em um único dataframe
 df_notas = pd.concat(dfs, ignore_index=True)
 
+
+# Criar base de dados do relatório de notas onde RESULTADO FINAL = ‘Matriculado'
+df_notas_matriculados = df_notas[df_notas['RESULTADO FINAL'] == 'MATRICULADO']
+
+# Salvar em Excel
+df_notas_matriculados.to_excel("notas_matriculados.xlsx", index=False)
+
+
 # Manter somente os componentes curriculares reprovados (RESULTADO FINAL = 'REPROVADO')
 df_notas = df_notas[df_notas['RESULTADO FINAL'] == 'REPROVADO']
 
@@ -212,6 +222,7 @@ df_notas = df_notas[df_notas['RESULTADO FINAL'] == 'REPROVADO']
 df_notas['CPF_Padronizado'] = (
     df_notas['CPF PESSOA']
         .astype(str)
+        .str.replace(r'\.0$', '', regex=True)   # REMOVE O ".0" DO FINAL (caso seja float)
         .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
         .str.zfill(11)                        # completa com zeros à esquerda
         .str.replace(
@@ -352,7 +363,7 @@ mapeamento_etapa = {
 df_final['ETAPA_RESUMIDA'] = df_final['SÉRIE'].map(mapeamento_etapa)
 
 
-# Criar coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC e EPT
+# Criar coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC, EPT e Específicos
 # Componentes da BNCC
 lista_bncc = [
     'Matemática',
@@ -373,12 +384,111 @@ lista_bncc = [
     'Ensino Religioso'
 ]
 
-# Criar a nova variável 'CATEGORIA_COMPONENTE' com base na lista de componentes da BNCC (caso não seja BNCC, classificado como EPT)
-df_final['CATEGORIA_COMPONENTE'] = np.where(
-    df_final['COMPONENTE CURRICULAR'].isin(lista_bncc), 
-    'BNCC', 
-    'EPT'
-)
+# Componentes EPT
+lista_ept = [
+    'Informática Básica',
+    'Eletricidade Básica',
+    'Desenho Técnico',
+    'Fundamentos de Lógica e Algoritmos',
+    'Arquitetura e Organização de Computadores',
+    'Teoria e Fundamentos da Administração',
+    'Estatística',
+    'Prevenção e Combate a Sinistros',
+    'Gestão de Pessoas',
+    'Gestão Pública e Terceiro Setor',
+    'Controle Ambiental',
+    'Lógica de Programação (Algoritmos)',
+    'Metodologia do Trabalho Cientifico',
+    'Direito Empresarial, Trabalhista e Tributário',
+    'Instalações Elétricas de Baixa Tensão',
+    'Eletrônica Aplicada',
+    'Introdução à Segurança do Trabalho',
+    'Fundamentos de Redes de Computadores',
+    'Empreendedorismo',
+    'Manutenção e Configuração de Computadores',
+    'Matemática Financeira',
+    'Noções de Eletrônica e Eletricidade',
+    'Programação Estruturada',
+    'Estudo dos Solos e Materiais de Construção',
+    'Sociologia do Trabalho',
+    'Contabilidade Geral',
+    'Energia Eólica',
+    'Estatística Aplicada à Segurança do Trabalho',
+    'Programação WEB I e II',
+    'Eletrônica Analógica',
+    'Tipos de Energia Renovável',
+    'Princípios da Agroecologia',
+    'Programação Estruturada e Orientada a Objetos',
+    'Gestão Organizacional',
+    'Metodologia do Trabalho Científico',
+    'Prevenção e Controle de Perdas',
+    'Psicologia do Trabalho',
+    'Energia Solar, Térmica e Fotovoltaica',
+    'Fundamentos do Trabalho do Técnico em Redes de Computadores',
+    'Gestão de Saúde e Segurança Ocupacional',
+    'Primeiros Socorros',
+    'Cabeamento Estruturado e Redes de Acesso',
+    'Agricultura Familiar',
+    'Banco de Dados',
+    'Educação Ambiental e Eco Turismo',
+    'Educação Digital',
+    'Matemática Básica',
+    'Planejamento Estratégico',
+    'Segurança da Informação',
+    'Sistemas Operacionais',
+    'Fundamentos da Computação',
+    'Fundamentos do Técnico em Redes de Computadores',
+    'Gestão Financeira',
+    'Instalações Prediais Hidrossanitárias e Elétricas',
+    'Lógica de Programação - Algoritmos',
+    'Matematica Básica',
+    'Mineralogia',
+    'Petrografia',
+    'Redes de Computadores',
+    'Tecnologia em Mídias Digitais',
+    'Avaliação e Educação Nutricional',
+    'Desenvolvimento Sustentável',
+    'Gestão Ambiental',
+    'Microbiologia Ambiental',
+    'Sequenciamento da Produção',
+    'Trabalho de Conclusão de Curso - TCC',
+    'Cabeamento Estruturado e Redes de Acesso e Eletricidade Básica',
+    'Gestão Organizacional e Segurança do Trabalho',
+    'Hospitalidade e Meios de Hospedagem',
+    'Impactos Ambientais',
+    'Legislação Turistica',
+    'Legislação e Segurança do Trabalho',
+    'Química e Bioquímica dos Alimentos',
+    'Sociedade, Cultura e Meio Ambiente',
+    'Tecnologia de Implementação de Redes',
+    'Anatomia e Fisiologia Humana - Noções Básicas',
+    'Fitopatologia e Dietoterapia da Nutrição',
+    'Geologia Geral',
+    'História do RN Aplicada ao Turismo',
+    'Marketing e Serviços',
+    'Matemática Financeira e Estatística',
+    'Microbiologia dos Alimentos',
+    'Máquinas e Acionamentos Elétricos',
+    'Orçamento e Estabilidade',
+    'Química Orgânica',
+    'Saúde Pública',
+    'Tecnologia da Costura, do Enfesto e Corte',
+    'Tecnologia da Modelagem',
+    'Tecnologia de Cereais'
+]
+
+# Criar a nova variável 'CATEGORIA_COMPONENTE' com base na lista de componentes da BNCC e EPT (caso não seja nenhum dos dois, classificar como Específico)
+# Definir regras/ condições
+condicoes = [
+    df_final['COMPONENTE CURRICULAR'].isin(lista_bncc),
+    df_final['COMPONENTE CURRICULAR'].isin(lista_ept)
+]
+
+# Rótulos par as condições
+rotulos = ['BNCC', 'EPT']
+
+# Aplicar o select com o valor padrão para o que sobrar
+df_final['CATEGORIA_COMPONENTE'] = np.select(condicoes, rotulos, default='Específico')
 
 
 # Criar a nova variável 'CATEGORIA_NECESSIDADES ESPECIAIS' para agrupar os tipos de necessidades especiais
@@ -440,11 +550,7 @@ def classificar_necessidade_especial(texto):
 df_final['CATEGORIA_NECESSIDADES ESPECIAIS'] = df_final['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'].apply(classificar_necessidade_especial)
 
 
-df_final['CATEGORIA_NECESSIDADES ESPECIAIS'].value_counts()
-
-
 # 10. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
-
 #################################### ANÁLISES ####################################
 # Estudantes por DIREC
 # Contagem de CPF_Padronizado distinto por DIREC
@@ -471,6 +577,11 @@ serie
 total_serie = serie['Quantidade de Estudantes Distintos'].sum()
 total_serie
 
+# Estudantes por Etapa de Ensino
+# Contagem de CPF_Padronizado distinto por Etapa de Ensino
+etapa = df_final.groupby('ETAPA_RESUMIDA')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
 # Estudantes por tipo de Necessidade Especial
 necessidade_especial = df_final.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 necessidade_especial
@@ -489,6 +600,9 @@ componente_direc
 componente_serie = df_final.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 componente_serie
 
+# Estudante por Componente por Etapa de Ensino
+componente_etapa = df_final.groupby(['ETAPA_RESUMIDA', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
 
 # Necessidade Especial por DIREC
 necessidade_direc = df_final.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
@@ -500,15 +614,17 @@ componente_serie_direc
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260515_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260520_analises_RAPP.xlsx") as writer:
     df_final.to_excel(writer, sheet_name='Base RAPP', index=False)
     direc.to_excel(writer, sheet_name='DIREC', index=False)
     componente.to_excel(writer, sheet_name='Componente', index=False)
     serie.to_excel(writer, sheet_name='Serie', index=False)
+    etapa.to_excel(writer, sheet_name='Etapa', index=False)
     necessidade_especial.to_excel(writer, sheet_name='Neces. Especial', index=False)
     serie_direc.to_excel(writer, sheet_name='Serie e DIREC', index=False)
     componente_direc.to_excel(writer, sheet_name='Componente e DIREC', index=False)
     componente_serie.to_excel(writer, sheet_name='Componente e Serie', index=False)
+    componente_etapa.to_excel(writer, sheet_name='Componente e Etapa', index=False)
     necessidade_direc.to_excel(writer, sheet_name='Neces. Especial e DIREC', index=False)
     componente_serie_direc.to_excel(writer, sheet_name='Componente, Serie e DIREC', index=False)
 
@@ -535,6 +651,10 @@ componente_bncc
 serie_bncc = df_bncc.groupby('SÉRIE')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 serie_bncc
 
+# Estudantes por Etapa de Ensino
+# Contagem de CPF_Padronizado distinto por Etapa de Ensino
+etapa_bncc = df_bncc.groupby('ETAPA_RESUMIDA')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
 
 # Estudantes por tipo de Necessidade Especial
 necessidade_especial_bncc = df_bncc.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
@@ -554,6 +674,9 @@ componente_direc_bncc
 componente_serie_bncc = df_bncc.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 componente_serie_bncc
 
+# Estudante por Componente por Etapa de Ensino
+componente_etapa_bncc = df_bncc.groupby(['ETAPA_RESUMIDA', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
 
 # Necessidade Especial por DIREC
 necessidade_direc_bncc = df_bncc.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
@@ -565,15 +688,17 @@ componente_serie_direc_bncc
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260515_BNCC_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260520_BNCC_analises_RAPP.xlsx") as writer:
     df_bncc.to_excel(writer, sheet_name='BNCC_Base RAPP', index=False)
     direc_bncc.to_excel(writer, sheet_name='BNCC_DIREC', index=False)
     componente_bncc.to_excel(writer, sheet_name='BNCC_Componente', index=False)
     serie_bncc.to_excel(writer, sheet_name='BNCC_Serie', index=False)
+    etapa_bncc.to_excel(writer, sheet_name='BNCC_Etapa', index=False)
     necessidade_especial_bncc.to_excel(writer, sheet_name='BNCC_Neces. Especial', index=False)
     serie_direc_bncc.to_excel(writer, sheet_name='BNCC_Serie e DIREC', index=False)
     componente_direc_bncc.to_excel(writer, sheet_name='BNCC_Componente e DIREC', index=False)
     componente_serie_bncc.to_excel(writer, sheet_name='BNCC_Componente e Serie', index=False)
+    componente_etapa_bncc.to_excel(writer, sheet_name='BNCC_Componente e Etapa', index=False)
     necessidade_direc_bncc.to_excel(writer, sheet_name='BNCC_Neces. Especial e DIREC', index=False)
     componente_serie_direc_bncc.to_excel(writer, sheet_name='BNCC_Componente, Serie e DIREC', index=False)
 
@@ -601,6 +726,10 @@ componente_ept
 serie_ept = df_ept.groupby('SÉRIE')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 serie_ept
 
+# Estudantes por Etapa de Ensino
+# Contagem de CPF_Padronizado distinto por Série
+etapa_ept = df_ept.groupby('ETAPA_RESUMIDA')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
 
 # Estudantes por tipo de Necessidade Especial
 necessidade_especial_ept = df_ept.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
@@ -620,6 +749,9 @@ componente_direc_ept
 componente_serie_ept = df_ept.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
 componente_serie_ept
 
+# Estudante por Componente por Etapa de Ensino
+componente_etapa_ept = df_ept.groupby(['ETAPA_RESUMIDA', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
 
 # Necessidade Especial por DIREC
 necessidade_direc_ept = df_ept.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
@@ -631,21 +763,91 @@ componente_serie_direc_ept
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260515_EPT_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260520_EPT_analises_RAPP.xlsx") as writer:
     df_ept.to_excel(writer, sheet_name='EPT_Base RAPP', index=False)
     direc_ept.to_excel(writer, sheet_name='EPT_DIREC', index=False)
     componente_ept.to_excel(writer, sheet_name='EPT_Componente', index=False)
     serie_ept.to_excel(writer, sheet_name='EPT_Serie', index=False)
+    etapa_ept.to_excel(writer, sheet_name='EPT_Etapa', index=False)
     necessidade_especial_ept.to_excel(writer, sheet_name='EPT_Neces. Especial', index=False)
     serie_direc_ept.to_excel(writer, sheet_name='EPT_Serie e DIREC', index=False)
     componente_direc_ept.to_excel(writer, sheet_name='EPT_Componente e DIREC', index=False)
     componente_serie_ept.to_excel(writer, sheet_name='EPT_Componente e Serie', index=False)
+    componente_etapa_ept.to_excel(writer, sheet_name='EPT_Componente e Etapa', index=False)
     necessidade_direc_ept.to_excel(writer, sheet_name='EPT_Neces. Especial e DIREC', index=False)
     componente_serie_direc_ept.to_excel(writer, sheet_name='EPT_Componente, Serie e DIREC', index=False)
 
 
+######################################################################
+# CATEGORIA_COMPONENTE = 'Específico'
+df_esp = df_final[df_final['CATEGORIA_COMPONENTE'] == 'Específico']
 
 
+# Estudantes por DIREC
+# Contagem de CPF_Padronizado distinto por DIREC
+direc_esp = df_esp.groupby('DIREC')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudantes por Componente Curricular
+# Contagem de CPF_Padronizado distinto por Componente Curricular
+componente_esp = df_esp.groupby('COMPONENTE CURRICULAR')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudantes por Série
+# Contagem de CPF_Padronizado distinto por Série
+serie_esp = df_esp.groupby('SÉRIE')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudantes por Etapa de Ensino
+# Contagem de CPF_Padronizado distinto por Série
+etapa_esp = df_esp.groupby('ETAPA_RESUMIDA')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudantes por tipo de Necessidade Especial
+necessidade_especial_esp = df_esp.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudante por Série em cada DIREC
+serie_direc_esp = df_esp.groupby(['DIREC', 'SÉRIE'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudante por componente em cada DIREC
+componente_direc_esp = df_esp.groupby(['DIREC', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudante por Componente por Série
+componente_serie_esp = df_esp.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Estudante por Componente por Etapa de Ensino
+componente_etapa_esp = df_esp.groupby(['ETAPA_RESUMIDA', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Necessidade Especial por DIREC
+necessidade_direc_esp = df_esp.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Componente, por Série e por DIREC
+componente_serie_direc_esp = df_esp.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260520_ESPECIFICO_analises_RAPP.xlsx") as writer:
+    df_esp.to_excel(writer, sheet_name='ESP_Base RAPP', index=False)
+    direc_esp.to_excel(writer, sheet_name='ESP_DIREC', index=False)
+    componente_esp.to_excel(writer, sheet_name='ESP_Componente', index=False)
+    serie_esp.to_excel(writer, sheet_name='ESP_Serie', index=False)
+    etapa_esp.to_excel(writer, sheet_name='ESP_Etapa', index=False)
+    necessidade_especial_esp.to_excel(writer, sheet_name='ESP_Neces. Especial', index=False)
+    serie_direc_esp.to_excel(writer, sheet_name='ESP_Serie e DIREC', index=False)
+    componente_direc_esp.to_excel(writer, sheet_name='ESP_Componente e DIREC', index=False)
+    componente_serie_esp.to_excel(writer, sheet_name='ESP_Componente e Serie', index=False)
+    componente_etapa_esp.to_excel(writer, sheet_name='ESP_Componente e Etapa', index=False)
+    necessidade_direc_esp.to_excel(writer, sheet_name='ESP_Neces. Especial e DIREC', index=False)
+    componente_serie_direc_esp.to_excel(writer, sheet_name='ESP_Componente, Serie e DIREC', index=False)
+
+
+
+###################################################################################
 
 
 
