@@ -6,10 +6,9 @@ Ideia Geral do código para identificação dos estudantes em RAPP em 2026:
 4. Padronizar CPFs na base de 2026 para cruzamento com a base de 2025;
 5. Padronizar CPFs nos Relatórios de Notas 2025 para cruzamento com a base de relatório geral de matrículas;
 6. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP.
-7. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
-8. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
-9. Excluir duplicatas da combinação de componente + CPF;
-10. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
+7. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
+8. Excluir duplicatas da combinação de componente + CPF;
+9. Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
 '''
 
 # Importação das bibliotecas
@@ -239,6 +238,20 @@ df_notas['CPF_Padronizado'] = (
         )
 )
 
+# Excluir componentes da base de dados que não devem reprovar
+componentes_excluir = [
+    'Projeto de Vida',
+    'Recomposição das Aprendizagens em Língua Portuguesa e Matemática',
+    'Recomposição de Aprendizagens - Matemática',
+    'Recomposição de Aprendizagens - Língua Portuguesa',
+    'Recomposição de Aprendizagens em Matemática',
+    'Recomposição de Aprendizagens em Língua Portuguesa',
+    'Orientação Acadêmica'
+]
+
+df_notas = df_notas[~df_notas['COMPONENTE CURRICULAR'].isin(componentes_excluir)]
+
+
 # Lista de estudantes sem CPF
 estudantes_sem_cpf_notas = df_notas[df_notas['CPF_Padronizado'] == '000.000.000-00']
 
@@ -246,7 +259,7 @@ estudantes_sem_cpf_notas = df_notas[df_notas['CPF_Padronizado'] == '000.000.000-
 estudantes_sem_cpf_notas.to_excel(r"D:\Scripts_Python\FGV\RAPP_2026\Notas_estudantes_sem_cpf.xlsx", index=False)
 
 # Salvar em um único Excel os estudantes sem CPF das bases de Matrículas 2025, Matrículas 2026 e Notas 2025
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_sem_CPF.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_sem_CPF.xlsx") as writer:
     estudantes_sem_cpf_2025.to_excel(writer, sheet_name='Matriculas_2025', index=False)
     estudantes_sem_cpf_2026.to_excel(writer, sheet_name='Matriculas_2026', index=False)
     estudantes_sem_cpf_notas.to_excel(writer, sheet_name='Notas_2025', index=False)
@@ -262,8 +275,8 @@ df_notas_matriculados.to_excel("notas_matriculados.xlsx", index=False)
 df_notas = df_notas[df_notas['CPF_Padronizado'] != '000.000.000-00']
 
 
-# Manter somente os componentes curriculares reprovados (RESULTADO FINAL = 'REPROVADO')
-df_notas = df_notas[df_notas['RESULTADO FINAL'] == 'REPROVADO']
+# Manter somente os componentes curriculares diferentes de 'APROVADO' (RESULTADO FINAL = 'APROVADO') (o que inclui: Reprovado; Matriculado; Aproveitamento de Estudos)
+df_notas = df_notas[df_notas['RESULTADO FINAL'] != 'APROVADO']
 
 
 # Excluir coluna 'CPF PESSOA' para só usar o 'CPF_Padronizado' e evitar confusão
@@ -298,11 +311,11 @@ df_notas = df_notas.drop(columns=[
 ])
 
 
-# 6. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares reprovados dos estudantes identificados em RAPP 2025.
-# Selecionar somente acoluna de CPF e componente curricular para fazer o merge
-colunas_notas = ['CPF_Padronizado', 'COMPONENTE CURRICULAR']
+# 6. Utilizar Relatório de Notas 2025 para preencher os componentes curriculares não aprovados dos estudantes identificados em RAPP 2025.
+# Selecionar somente a coluna de CPF e componente curricular para fazer o merge
+colunas_notas = ['CPF_Padronizado', 'COMPONENTE CURRICULAR', 'RESULTADO FINAL']
 
-# Merge para incluir os componentes curriculares reprovados na base de estudantes em RAPP 2025
+# Merge para incluir os componentes curriculares não aprovados na base de estudantes em RAPP 2025
 df_final = pd.merge(
     df_geral_2025, 
     df_notas[colunas_notas], 
@@ -322,7 +335,7 @@ print(f"Quantidade de linhas com Componente Curricular nulo: {total_nulos}")
 df_final['COMPONENTE CURRICULAR'] = df_final['COMPONENTE CURRICULAR'].fillna('Não Identificado')
 
 
-# 7. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para retirar estudantes não encontrados nos dados de 2026 ou com SITUAÇÃO = 'CANCELADO', 'DEIXOU DE FREQUENTAR', 'TRANSFERIDO';
+
 # Criar uma lista de todos os CPFs que aparecem no relatório de 2026
 cpfs_2026 = df_geral_2026['CPF_Padronizado'].unique()
 
@@ -343,10 +356,6 @@ df_revisar = pd.concat([estudantes_nao_encontrados, estudantes_saida])
 
 # Salvar em Excel
 df_revisar.to_excel("estudantes_para_remover_ou_revisar.xlsx", index=False)
-
-
-# Remover esses estudantes do df_final
-df_final = df_final[~df_final['CPF_Padronizado'].isin(df_revisar['CPF_Padronizado'])]
 
 
 # 8. Utilizar informações do Relatório Geral Matrículas (2026 e atual) para atualizar as informações de DIREC, Escola e turma (variáveis: DIREC; CÓDIGO INEP ESCOLA; ESCOLA; TURMA);
@@ -395,6 +404,15 @@ mapeamento_etapa = {
 }
 
 df_final['ETAPA_RESUMIDA'] = df_final['SÉRIE'].map(mapeamento_etapa)
+
+
+# Utilizar informações do Relatório Geral Matrículas (2026 e atual) para acrescentar a coluna 'SITUAÇÃO_2026';
+df_final = pd.merge(
+    df_final,
+    df_geral_2026[['CPF_Padronizado', 'SITUAÇÃO']].rename(columns={'SITUAÇÃO': 'SITUAÇÃO_2026'}),
+    on='CPF_Padronizado',
+    how='left'
+)
 
 
 # Criar coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC, EPT e Específicos
@@ -524,18 +542,6 @@ rotulos = ['BNCC', 'EPT']
 # Aplicar o select com o valor padrão para o que sobrar
 df_final['CATEGORIA_COMPONENTE'] = np.select(condicoes, rotulos, default='Específico')
 
-# Excluir componentes da base de dados que não devem reprovar
-componentes_excluir = [
-    'Projeto de Vida',
-    'Recomposição das Aprendizagens em Língua Portuguesa e Matemática',
-    'Recomposição de Aprendizagens - Matemática',
-    'Recomposição de Aprendizagens - Língua Portuguesa',
-    'Recomposição de Aprendizagens em Matemática',
-    'Recomposição de Aprendizagens em Língua Portuguesa',
-    'Orientação Acadêmica'
-]
-
-df_final = df_final[~df_final['COMPONENTE CURRICULAR'].isin(componentes_excluir)]
 
 # Criar a nova variável 'CATEGORIA_NECESSIDADES ESPECIAIS' para agrupar os tipos de necessidades especiais
 # Lista de tipos de necessidades especiais para cada categoria
@@ -643,7 +649,7 @@ componente_serie_direc = df_final.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURRIC
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_analises_RAPP.xlsx") as writer:
     df_final.to_excel(writer, sheet_name='Base RAPP', index=False)
     direc.to_excel(writer, sheet_name='DIREC', index=False)
     componente.to_excel(writer, sheet_name='Componente', index=False)
@@ -710,7 +716,7 @@ componente_serie_direc_bncc = df_bncc.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CU
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_BNCC_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_BNCC_analises_RAPP.xlsx") as writer:
     df_bncc.to_excel(writer, sheet_name='BNCC_Base RAPP', index=False)
     direc_bncc.to_excel(writer, sheet_name='BNCC_DIREC', index=False)
     componente_bncc.to_excel(writer, sheet_name='BNCC_Componente', index=False)
@@ -777,7 +783,7 @@ componente_serie_direc_ept = df_ept.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURR
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_EPT_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_EPT_analises_RAPP.xlsx") as writer:
     df_ept.to_excel(writer, sheet_name='EPT_Base RAPP', index=False)
     direc_ept.to_excel(writer, sheet_name='EPT_DIREC', index=False)
     componente_ept.to_excel(writer, sheet_name='EPT_Componente', index=False)
@@ -844,7 +850,7 @@ componente_serie_direc_esp = df_esp.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURR
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_ESPECIFICO_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_ESPECIFICO_analises_RAPP.xlsx") as writer:
     df_esp.to_excel(writer, sheet_name='ESP_Base RAPP', index=False)
     direc_esp.to_excel(writer, sheet_name='ESP_DIREC', index=False)
     componente_esp.to_excel(writer, sheet_name='ESP_Componente', index=False)
@@ -912,7 +918,7 @@ componente_serie_direc_bncc_esp = df_bncc_esp.groupby(['DIREC', 'SÉRIE', 'COMPO
 
 
 # Juntar os valores por DIREC, Componente e Série e salvar em um arquivo Excel, com cada tabela em uma aba diferente
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_BNCC_ESPECIFICO_analises_RAPP.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_BNCC_ESPECIFICO_analises_RAPP.xlsx") as writer:
     df_bncc_esp.to_excel(writer, sheet_name='BNCC_ESP_Base RAPP', index=False)
     direc_bncc_esp.to_excel(writer, sheet_name='BNCC_ESP_DIREC', index=False)
     componente_bncc_esp.to_excel(writer, sheet_name='BNCC_ESP_Componente', index=False)
@@ -934,7 +940,7 @@ with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_BNCC_ESPECIFICO_a
 # Endereços das escolas de estudantes em RAPP
 
 # Importação da base tratada de estudantes em RAPP
-df_rapp = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\20260525_analises_RAPP.xlsx", sheet_name='Base RAPP')
+df_rapp = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_analises_RAPP.xlsx", sheet_name='Base RAPP')
 
 # Importação de base de endereços
 df_enderecos = pd.read_csv(r"D:\Scripts_Python\FGV\RAPP_2026\Enderecos_Escolas_RN.csv", sep=',')
@@ -959,7 +965,7 @@ df_rapp_6ano = df_rapp[df_rapp['SÉRIE'] == '6º ANO']
 
 
 # Salvar as bases com Endereço e somente 6º ano do Ensino Fundamental em arquivos Excel
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260527_Enderecos_RAPP.xlsx") as writer: 
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_Enderecos_RAPP.xlsx") as writer: 
     df_rapp.to_excel(writer, sheet_name='Base RAPP', index=False)
     df_rapp_6ano.to_excel(writer, sheet_name='6ano', index=False)
 
@@ -982,7 +988,7 @@ df_rapp_6ano_escolas = df_rapp_6ano[colunas_selecionadas].drop_duplicates(subset
 
 
 # Salvar em Excel os endereços das escolas do RAPP e dos estudantes do 6º ano
-with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260527_Enderecos_RAPP_Escolas.xlsx") as writer:
+with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_Enderecos_RAPP_Escolas.xlsx") as writer:
     df_rapp_escolas.to_excel(writer, sheet_name='Endereços Escolas RAPP', index=False)
     df_rapp_6ano_escolas.to_excel(writer, sheet_name='Endereços Escolas 6º ano', index=False)
 
