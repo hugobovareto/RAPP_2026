@@ -997,3 +997,564 @@ with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\20260601_Enderecos_RAPP_Es
 
 
 
+
+##########################################################################################################################################
+'''
+Base de estudantes em RAPP a partir de dados passados diretamente pela equipe do GPD da SEEC. 
+A extração e tratamento foi feita pelo GPD da SEEC.
+
+Procedimento:
+1. Fonte inicial: dados postos > aba; ‘RAPP REGULAR E TEC’
+2. Cruzar com a aba ‘REULTADOS’ para conseguir o ‘tipo de necessidade específica informada’
+3. 'Cruzar com a aba 'COMPONENTES' para conseguir todos os componentes reprovados por estudante'
+3. Criar a ‘CATEGORIA_NECESSIDADES ESPECIAIS’, ‘ETAPA_RESUMIDA’ e ‘CATEGORIA_COMPONENTE’ de acordo com o que tinha feito anteriormente.
+4. fazer todas as segmentações feitas anteriormente;
+5. Gerar 1 planilha para geral (todos os estudantes) e 1 para cada DIREC (17 planilhas final).
+
+'''
+# Utilizar as abas 'RAPP REGULAR E TEC' e 'RESULTADOS' como fontes de informação para análise
+df_rapp = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\20260603_Firmino_RAPP 2026.xlsx", sheet_name='RAPP REGULAR E TEC')
+df_necessidades = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\20260603_Firmino_RAPP 2026.xlsx", sheet_name='RESULTADOS')
+df_componentes = pd.read_excel(r"D:\Scripts_Python\FGV\RAPP_2026\20260603_Firmino_RAPP 2026.xlsx", sheet_name='COMPONENTES')
+
+
+# Padronizar o CPF dos 2 dataframes para cruzamento
+# Padronizar CPF: manter apenas dígitos, completar com zeros à esquerda e formatar como XXX.XXX.XXX-XX
+df_rapp['CPF_Padronizado'] = (
+    df_rapp['CPF PESSOA']
+        .astype(str)
+        .str.replace(r'\.0$', '', regex=True)   # REMOVE O ".0" DO FINAL (caso seja float)
+        .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
+        .str.zfill(11)                        # completa com zeros à esquerda
+        .str.replace(
+            r'(\d{3})(\d{3})(\d{3})(\d{2})',
+            r'\1.\2.\3-\4',
+            regex=True
+        )
+)
+
+df_necessidades['CPF_Padronizado'] = (
+    df_necessidades['CPF']
+        .astype(str)
+        .str.replace(r'\.0$', '', regex=True)   # REMOVE O ".0" DO FINAL (caso seja float)
+        .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
+        .str.zfill(11)                        # completa com zeros à esquerda
+        .str.replace(
+            r'(\d{3})(\d{3})(\d{3})(\d{2})',
+            r'\1.\2.\3-\4',
+            regex=True
+        )
+)
+
+df_componentes['CPF_Padronizado'] = (
+    df_componentes['CPF PESSOA']
+        .astype(str)
+        .str.replace(r'\.0$', '', regex=True)   # REMOVE O ".0" DO FINAL (caso seja float)
+        .str.replace(r'\D', '', regex=True)   # remove tudo que não é dígito
+        .str.zfill(11)                        # completa com zeros à esquerda
+        .str.replace(
+            r'(\d{3})(\d{3})(\d{3})(\d{2})',
+            r'\1.\2.\3-\4',
+            regex=True
+        )
+)
+
+
+# Acrescentar no df_rapp a coluna 'TIPO NECESSIDADE ESPECÍFICA INFORMADAS', cruzando com o df_necessidades a partir do CPF_Padronizado
+# Filtra e remove CPFs duplicados no df_necessidades, mantendo apenas a primeira aparição
+df_necessidades_filtrado = df_necessidades[
+    ["CPF_Padronizado", "TIPO NECESSIDADE ESPECÍFICA INFORMADAS"]
+].drop_duplicates(subset=["CPF_Padronizado"])
+
+# Merge para acrescentar a coluna de tipo de necessidade específica informada no df_rapp
+df_rapp = df_rapp.merge(
+    df_necessidades_filtrado,
+    on='CPF_Padronizado',
+    how='left'
+)
+
+
+# Excluir a coluna 'COMPONENTE CURRICULAR' do df_rapp já que essa não apresenta informação relevante e substituir por uma nova coluna 'COMPONENTE CURRICULAR' vindo da aba 'COMPONENTES'
+df_rapp = df_rapp.drop(columns=['COMPONENTE CURRICULAR'])
+
+
+# Acrescentar no df_rapp a coluna 'COMPONENTE CURRICULAR', cruzando com o df_componentes a partir do CPF_Padronizado
+df_rapp = df_rapp.merge(
+    df_componentes[['CPF_Padronizado', 'COMPONENTE CURRICULAR']], 
+    on='CPF_Padronizado', 
+    how='left'
+)
+
+# Trocar nomenclatura das séries para padronizar:
+mapeamento = {
+    '6º Ano': '6º ANO',
+    '7º Ano': '7º ANO',
+    '8º Ano': '8º ANO',
+    '9º Ano': '9º ANO'
+}
+
+df_rapp['SÉRIE'] = df_rapp['SÉRIE'].replace(mapeamento)
+
+
+# Criar a coluna 'ETAPA_RESUMIDA' a partir da SÉRIE
+mapeamento_etapa = {
+    '1ª SÉRIE': 'Ensino Médio',
+    '2ª SÉRIE': 'Ensino Médio',
+    '3ª SÉRIE': 'Ensino Médio',
+    '1º SEMESTRE': 'Ensino Médio',
+    '2º SEMESTRE': 'Ensino Médio',
+    '3° PERÍODO': 'Ensino Médio',
+    'TURMA II (8° E 9° ANOS)': 'Ens. Fund. - Anos Finais',
+    '6º ANO': 'Ens. Fund. - Anos Finais',
+    '7º ANO': 'Ens. Fund. - Anos Finais',
+    '8º ANO': 'Ens. Fund. - Anos Finais',
+    '9º ANO': 'Ens. Fund. - Anos Finais'
+}
+
+df_rapp['ETAPA_RESUMIDA'] = df_rapp['SÉRIE'].map(mapeamento_etapa)
+
+
+# Criar coluna 'CATEGORIA_COMPONENTE' para diferenciar componentes da BNCC, EPT e Específicos
+# Componentes da BNCC
+lista_bncc = [
+    'Matemática',
+    'Física',
+    'Química',
+    'Língua Portuguesa',
+    'História', 
+    'Biologia',
+    'Geografia',
+    'Língua Inglesa',
+    'Sociologia', 
+    'Língua Espanhola',
+    'Arte',
+    'Filosofia',
+    'Educação Física',
+    'Ciências', 
+    'Educação Física',
+    'Ensino Religioso'
+]
+
+# Componentes EPT
+lista_ept = [
+    'Informática Básica',
+    'Eletricidade Básica',
+    'Desenho Técnico',
+    'Fundamentos de Lógica e Algoritmos',
+    'Arquitetura e Organização de Computadores',
+    'Teoria e Fundamentos da Administração',
+    'Estatística',
+    'Prevenção e Combate a Sinistros',
+    'Gestão de Pessoas',
+    'Gestão Pública e Terceiro Setor',
+    'Controle Ambiental',
+    'Lógica de Programação (Algoritmos)',
+    'Metodologia do Trabalho Cientifico',
+    'Direito Empresarial, Trabalhista e Tributário',
+    'Instalações Elétricas de Baixa Tensão',
+    'Eletrônica Aplicada',
+    'Introdução à Segurança do Trabalho',
+    'Fundamentos de Redes de Computadores',
+    'Empreendedorismo',
+    'Manutenção e Configuração de Computadores',
+    'Matemática Financeira',
+    'Noções de Eletrônica e Eletricidade',
+    'Programação Estruturada',
+    'Estudo dos Solos e Materiais de Construção',
+    'Sociologia do Trabalho',
+    'Contabilidade Geral',
+    'Energia Eólica',
+    'Estatística Aplicada à Segurança do Trabalho',
+    'Programação WEB I e II',
+    'Eletrônica Analógica',
+    'Tipos de Energia Renovável',
+    'Princípios da Agroecologia',
+    'Programação Estruturada e Orientada a Objetos',
+    'Gestão Organizacional',
+    'Metodologia do Trabalho Científico',
+    'Prevenção e Controle de Perdas',
+    'Psicologia do Trabalho',
+    'Energia Solar, Térmica e Fotovoltaica',
+    'Fundamentos do Trabalho do Técnico em Redes de Computadores',
+    'Gestão de Saúde e Segurança Ocupacional',
+    'Primeiros Socorros',
+    'Cabeamento Estruturado e Redes de Acesso',
+    'Agricultura Familiar',
+    'Banco de Dados',
+    'Educação Ambiental e Eco Turismo',
+    'Educação Digital',
+    'Matemática Básica',
+    'Planejamento Estratégico',
+    'Segurança da Informação',
+    'Sistemas Operacionais',
+    'Fundamentos da Computação',
+    'Fundamentos do Técnico em Redes de Computadores',
+    'Gestão Financeira',
+    'Instalações Prediais Hidrossanitárias e Elétricas',
+    'Lógica de Programação - Algoritmos',
+    'Matematica Básica',
+    'Mineralogia',
+    'Petrografia',
+    'Redes de Computadores',
+    'Tecnologia em Mídias Digitais',
+    'Avaliação e Educação Nutricional',
+    'Desenvolvimento Sustentável',
+    'Gestão Ambiental',
+    'Microbiologia Ambiental',
+    'Sequenciamento da Produção',
+    'Trabalho de Conclusão de Curso - TCC',
+    'Cabeamento Estruturado e Redes de Acesso e Eletricidade Básica',
+    'Gestão Organizacional e Segurança do Trabalho',
+    'Hospitalidade e Meios de Hospedagem',
+    'Impactos Ambientais',
+    'Legislação Turistica',
+    'Legislação e Segurança do Trabalho',
+    'Química e Bioquímica dos Alimentos',
+    'Sociedade, Cultura e Meio Ambiente',
+    'Tecnologia de Implementação de Redes',
+    'Anatomia e Fisiologia Humana - Noções Básicas',
+    'Fitopatologia e Dietoterapia da Nutrição',
+    'Geologia Geral',
+    'História do RN Aplicada ao Turismo',
+    'Marketing e Serviços',
+    'Matemática Financeira e Estatística',
+    'Microbiologia dos Alimentos',
+    'Máquinas e Acionamentos Elétricos',
+    'Orçamento e Estabilidade',
+    'Química Orgânica',
+    'Saúde Pública',
+    'Tecnologia da Costura, do Enfesto e Corte',
+    'Tecnologia da Modelagem',
+    'Tecnologia de Cereais'
+]
+
+# Criar a nova variável 'CATEGORIA_COMPONENTE' com base na lista de componentes da BNCC e EPT (caso não seja nenhum dos dois, classificar como Específico)
+# Definir regras/ condições
+condicoes = [
+    df_rapp['COMPONENTE CURRICULAR'].isin(lista_bncc),
+    df_rapp['COMPONENTE CURRICULAR'].isin(lista_ept)
+]
+
+# Rótulos par as condições
+rotulos = ['BNCC', 'EPT']
+
+# Aplicar o select com o valor padrão para o que sobrar
+df_rapp['CATEGORIA_COMPONENTE'] = np.select(condicoes, rotulos, default='Específico')
+
+
+# Criar a nova variável 'CATEGORIA_NECESSIDADES ESPECIAIS' para agrupar os tipos de necessidades especiais
+# Lista de tipos de necessidades especiais para cada categoria
+categorias_necessidades_especiais = {
+    'Altas habilidades/superdotação': 'Transtorno do Neurodesenvolvimento',
+    'Transtorno de Déficit de Atenção e Hiperatividade (TDAH)': 'Transtorno do Neurodesenvolvimento',
+    'Transtorno do Espectro Autista (TEA)': 'Transtorno do Neurodesenvolvimento',
+    'Baixa visão': 'Deficiência Visual',
+    'Baixa audição': 'Deficiência Auditiva',
+    'Surdez': 'Deficiência Auditiva',
+    'Discalculia': 'Transtorno do Neurodesenvolvimento',
+    'Disgrafia': 'Transtorno do Neurodesenvolvimento',
+    'Deficiência Auditiva': 'Deficiência Auditiva',
+    'Deficiência física': 'Deficiência Física',
+    'Deficiência intelectual': 'Deficiência Intelectual',
+    'Deficiência múltipla': 'Deficiência Múltipla',
+    'Deficiência intelectual': 'Deficiência Intelectual',
+    'Visão monocular': 'Deficiência Visual',
+    'Cegueira': 'Deficiência Visual',
+    'Perda de visão periférica': 'Deficiência Visual',
+    'Paraplegia': 'Deficiência Física',
+    'Tetraplegia': 'Deficiência Física',
+    'Hemiegia': 'Deficiência Física',
+    'Paralisia cerebral': 'Deficiência Física',
+    'Amputações e deformidades congênitas': 'Deficiência Física',
+    'Síndrone de down': 'Deficiência Intelectual',
+    'Síndromes genéticas': 'Deficiência Intelectual',
+    'Dislexia': 'Transtorno do Neurodesenvolvimento',
+    'Dislalia': 'Transtorno do Neurodesenvolvimento',
+    'Disortografia': 'Transtorno do Neurodesenvolvimento'
+}
+
+def classificar_necessidade_especial(texto):
+    # Trata valores nulos ou vazios
+    if pd.isna(texto) or str(texto).strip() in ["", "-", "NÃO INFORMADO"]:
+        return "Sem necessidade especial informada"
+    
+    texto = str(texto).strip()
+
+    # Caso 1: A linha é exatamente igual a uma das chaves do mapeamento
+    if texto in categorias_necessidades_especiais:
+        return categorias_necessidades_especiais[texto]
+    
+    # Caso 2: Se não é uma opção única, verificar se existem múltiplas opções conhecidas dentro do texto
+    # Contar quantas chaves do dicionário estão presentes na string
+    opcoes_encontradas = [opcao for opcao in categorias_necessidades_especiais.keys() if opcao in texto]
+    
+    if len(opcoes_encontradas) > 1:
+        return "Deficiência Múltipla"
+    
+    # Caso 3: Se encontrou apenas uma (mas talvez com algum caractere extra ou espaço diferente)
+    if len(opcoes_encontradas) == 1:
+        return categorias_necessidades_especiais[opcoes_encontradas[0]]
+
+    return "Outra Categoria / Não Mapeado"
+
+# 2. Aplicar a nova função
+df_rapp['CATEGORIA_NECESSIDADES ESPECIAIS'] = df_rapp['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'].apply(classificar_necessidade_especial)
+
+
+# Fazer as segmentações e contagem de interesse: estudantes por DIREC; por componente; por turno; por Série; necessidades especiais etc.
+#################################### ANÁLISES ####################################
+# Estudantes por DIREC
+# Contagem de CPF_Padronizado distinto por DIREC
+direc = df_rapp.groupby('DIREC')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por Componente Curricular
+# Contagem de CPF_Padronizado distinto por Componente Curricular
+componente = df_rapp.groupby('COMPONENTE CURRICULAR')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por Série
+# Contagem de CPF_Padronizado distinto por Série
+serie = df_rapp.groupby('SÉRIE')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por Etapa de Ensino
+# Contagem de CPF_Padronizado distinto por Etapa de Ensino
+etapa = df_rapp.groupby('ETAPA_RESUMIDA')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por tipo de Necessidade Especial
+necessidade_especial = df_rapp.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Série em cada DIREC
+serie_direc = df_rapp.groupby(['DIREC', 'SÉRIE'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Etapa em cada DIREC
+etapa_direc = df_rapp.groupby(['DIREC', 'ETAPA_RESUMIDA'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por componente em cada DIREC
+componente_direc = df_rapp.groupby(['DIREC', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Componente por Série
+componente_serie = df_rapp.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Componente por Etapa de Ensino
+componente_etapa = df_rapp.groupby(['ETAPA_RESUMIDA', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Necessidade Especial por DIREC
+necessidade_direc = df_rapp.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Necessidade Especial por ETAPA
+necessidade_etapa = df_rapp.groupby(['ETAPA_RESUMIDA', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Componente, por Série e por DIREC
+componente_serie_direc = df_rapp.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+
+# Caminho da pasta onde os arquivos serão salvos
+pasta_destino = r"D:\Scripts_Python\FGV\RAPP_2026\20260608_RAPP"
+
+
+# Salva o arquivo GERAL
+caminho_geral = os.path.join(pasta_destino, "20260608_GERAL_analises_RAPP.xlsx")
+
+with pd.ExcelWriter(caminho_geral) as writer:
+    df_rapp.to_excel(writer, sheet_name='Base RAPP', index=False)
+    direc.to_excel(writer, sheet_name='DIREC', index=False)
+    componente.to_excel(writer, sheet_name='Componente', index=False)
+    serie.to_excel(writer, sheet_name='Serie', index=False)
+    etapa.to_excel(writer, sheet_name='Etapa', index=False)
+    necessidade_especial.to_excel(writer, sheet_name='Neces. Especial', index=False)
+    serie_direc.to_excel(writer, sheet_name='Serie e DIREC', index=False)
+    etapa_direc.to_excel(writer, sheet_name='Etapa e DIREC', index=False)
+    componente_direc.to_excel(writer, sheet_name='Componente e DIREC', index=False)
+    componente_serie.to_excel(writer, sheet_name='Componente e Serie', index=False)
+    componente_etapa.to_excel(writer, sheet_name='Componente e Etapa', index=False)
+    necessidade_direc.to_excel(writer, sheet_name='Neces. Especial e DIREC', index=False)
+    necessidade_etapa.to_excel(writer, sheet_name='Neces. Especial e Etapa', index=False)
+    componente_serie_direc.to_excel(writer, sheet_name='Componente, Serie e DIREC', index=False)
+
+
+# GERAR 1 PLANILHA PARA CADA DIREC
+print("\nIniciando a criação das planilhas por DIREC...")
+
+# Obtém a lista de DIRECs únicas diretamente da coluna para evitar erros de digitação
+lista_direcs = df_rapp["DIREC"].dropna().unique()
+
+for d in lista_direcs:
+    print(f" -> Processando: {d}")
+
+    # Formata o nome do arquivo (ex: '01ª DIREC - NATAL' vira '01_DIREC_NATAL')
+    nome_limpo = (
+        str(d).replace("ª", "").replace(" - ", "_").replace(" ", "_")
+    )
+    caminho_direc = os.path.join(
+        pasta_destino, f"20260608_{nome_limpo}_analises_RAPP.xlsx"
+    )
+
+    # Passo chave: Filtra a base principal APENAS para a DIREC do loop atual
+    df_rapp_filtrado = df_rapp[df_rapp["DIREC"] == d]
+
+    # Recalcula todas as tabelas usando o DataFrame filtrado
+    direc_f = (
+        df_rapp_filtrado.groupby("DIREC")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_f = (
+        df_rapp_filtrado.groupby("COMPONENTE CURRICULAR")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    serie_f = (
+        df_rapp_filtrado.groupby("SÉRIE")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    etapa_f = (
+        df_rapp_filtrado.groupby("ETAPA_RESUMIDA")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    necessidade_especial_f = (
+        df_rapp_filtrado.groupby("CATEGORIA_NECESSIDADES ESPECIAIS")[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    serie_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "SÉRIE"])["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    etapa_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "ETAPA_RESUMIDA"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_serie_f = (
+        df_rapp_filtrado.groupby(["SÉRIE", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_etapa_f = (
+        df_rapp_filtrado.groupby(["ETAPA_RESUMIDA", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    necessidade_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "CATEGORIA_NECESSIDADES ESPECIAIS"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    necessidade_etapa_f = (
+        df_rapp_filtrado.groupby(
+            ["ETAPA_RESUMIDA", "CATEGORIA_NECESSIDADES ESPECIAIS"]
+        )["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_serie_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "SÉRIE", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+
+    # Grava o arquivo Excel da DIREC atual com todas as abas
+    with pd.ExcelWriter(caminho_direc) as writer:
+        df_rapp_filtrado.to_excel(writer, sheet_name="Base RAPP", index=False)
+        direc_f.to_excel(writer, sheet_name="DIREC", index=False)
+        componente_f.to_excel(writer, sheet_name="Componente", index=False)
+        serie_f.to_excel(writer, sheet_name="Serie", index=False)
+        etapa_f.to_excel(writer, sheet_name="Etapa", index=False)
+        necessidade_especial_f.to_excel(
+            writer, sheet_name="Neces. Especial", index=False
+        )
+        serie_direc_f.to_excel(writer, sheet_name="Serie e DIREC", index=False)
+        etapa_direc_f.to_excel(writer, sheet_name="Etapa e DIREC", index=False)
+        componente_direc_f.to_excel(
+            writer, sheet_name="Componente e DIREC", index=False
+        )
+        componente_serie_f.to_excel(
+            writer, sheet_name="Componente e Serie", index=False
+        )
+        componente_etapa_f.to_excel(
+            writer, sheet_name="Componente e Etapa", index=False
+        )
+        necessidade_direc_f.to_excel(
+            writer, sheet_name="Neces. Especial e DIREC", index=False
+        )
+        necessidade_etapa_f.to_excel(
+            writer, sheet_name="Neces. Especial e Etapa", index=False
+        )
+        componente_serie_direc_f.to_excel(
+            writer, sheet_name="Componente, Serie e DIREC", index=False
+        )
+
+
+print("\nTodo o processo foi concluído com sucesso!")
+
+
+
+
+
+
+
+
+
+
+
+
