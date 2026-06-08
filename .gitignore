@@ -6,7 +6,7 @@ __pycache__/
 # Dados
 *.xlsx
 *.xls
-20260608_RAPP/
+Resultados/
 
 # Arquivos do sistema
 .DS_Store
