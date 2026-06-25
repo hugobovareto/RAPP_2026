@@ -1814,12 +1814,6 @@ def classificar_necessidade_especial(texto):
 df_rapp['CATEGORIA_NECESSIDADES ESPECIAIS'] = df_rapp['TIPO NECESSIDADE ESPECÍFICA INFORMADAS'].apply(classificar_necessidade_especial)
 
 
-######### (NÃO VAI SER EXCLUÍDO. É CONTADO DUAS VEZES)
-######### Excluir valores duplicados de componente-CPF_Padronizado
-##### df_rapp = df_rapp.drop_duplicates(subset=['COMPONENTE CURRICULAR', 'CPF_Padronizado'], keep='first')
-
-
-
 ############ ENDEREÇOS DAS ESCOLAS DE ESTUDANTES EM RAPP
 # Adicionar a coluna 'Endereco_escola' para cada estudante
 # Importação de base de endereços
@@ -1871,6 +1865,110 @@ df_rapp_6ano_escolas = df_rapp_6ano[colunas_selecionadas].drop_duplicates(subset
 with pd.ExcelWriter(r"D:\Scripts_Python\FGV\RAPP_2026\Resultados\20260617_RAPP\20260617_Enderecos_RAPP_Escolas.xlsx") as writer:
     df_rapp_escolas.to_excel(writer, sheet_name='Endereços Escolas RAPP', index=False)
     df_rapp_6ano_escolas.to_excel(writer, sheet_name='Endereços Escolas 6º ano', index=False)
+
+
+######### (NÃO VAI SER EXCLUÍDO. É CONTADO DUAS VEZES)
+######### Excluir valores duplicados de componente-CPF_Padronizado
+##### df_rapp = df_rapp.drop_duplicates(subset=['COMPONENTE CURRICULAR', 'CPF_Padronizado'], keep='first')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Lista de CPF_Padronizado para manter
+cpfs_manter = [
+    '134.043.684-10',
+    '136.235.774-05'
+]
+
+# Segmentar somente a 12ª DIREC
+df_12_direc = df_rapp[df_rapp['DIREC'] == '12ª DIREC - MOSSORÓ']
+
+
+# Excluir a 12ª DIREC
+df_rapp = df_rapp[df_rapp['DIREC'] != '12ª DIREC - MOSSORÓ']
+
+
+# Registros dos CPFs que serão preservados
+df_manter = df_12_direc[df_12_direc['CPF_Padronizado'].isin(cpfs_manter)]
+
+# Restante da base
+df_restante = df_12_direc[~df_12_direc['CPF_Padronizado'].isin(cpfs_manter)]
+
+
+# Excluir duplicatas de componente-CPF_Padronizado na 12ª DIREC, mantendo somente os CPF_Padronizados
+df_restante = df_restante.drop_duplicates(subset=['COMPONENTE CURRICULAR', 'CPF_Padronizado'], keep='first')
+
+
+# Juntar os dataframes
+df_rapp = pd.concat([df_rapp, df_manter, df_restante], ignore_index=True)
+
+df_rapp
+
+####################################
+# Lista de CPF_Padronizado para manter
+cpfs_manter = [
+    '134.043.684-10',       # CPF da 12ª DIREC
+    '136.235.774-05',       # CPF da 12ª DIREC
+    '114.582.874-40',
+    '120.085.044-09',
+    '130.844.364-10',
+    '131.786.194-96',
+    '133.051.024-03',
+    '133.502.654-13',
+    '702.064.924-64',
+    '703.598.474-71',
+    '708.401.544-29',
+    '708.926.094-19',
+    '710.169.694-57',
+    '710.513.664-29',
+    '710.756.914-78',
+    '711.934.324-64',
+    '712.900.184-48',
+    '716.813.504-08',
+    '717.639.114-97',
+    '718.133.464-61',
+    '719.502.924-79'
+]
+
+
+# Registros dos CPFs que serão preservados
+df_manter = df_rapp[df_rapp['CPF_Padronizado'].isin(cpfs_manter)]
+
+# Restante da base
+df_restante = df_rapp[~df_rapp['CPF_Padronizado'].isin(cpfs_manter)]
+
+
+# Excluir duplicatas de componente-CPF_Padronizado na 12ª DIREC, mantendo somente os CPF_Padronizados
+df_restante = df_restante.drop_duplicates(subset=['COMPONENTE CURRICULAR', 'CPF_Padronizado'], keep='first')
+
+
+# Juntar os dataframes
+df_rapp = pd.concat([df_manter, df_restante], ignore_index=True)
+
+df_rapp
+
+
+
+
+
+
+
+
+
+
 
 
 
