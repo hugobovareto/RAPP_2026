@@ -2305,7 +2305,7 @@ pasta_destino = r"D:\Scripts_Python\FGV\RAPP_2026\Resultados\20260625_RAPP"
 
 
 # Salva o arquivo GERAL
-caminho_geral = os.path.join(pasta_destino, "20260617_12_DIREC_MOSSORÓ_analises_RAPP.xlsx")
+caminho_geral = os.path.join(pasta_destino, "20260625_12_DIREC_MOSSORÓ_analises_RAPP.xlsx")
 
 with pd.ExcelWriter(caminho_geral) as writer:
     df_12_direc.to_excel(writer, sheet_name='Base RAPP', index=False)
