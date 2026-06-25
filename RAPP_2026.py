@@ -2019,11 +2019,11 @@ componente_serie_direc = df_rapp.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURRICU
 
 
 # Caminho da pasta onde os arquivos serão salvos
-pasta_destino = r"D:\Scripts_Python\FGV\RAPP_2026\Resultados\20260617_RAPP"
+pasta_destino = r"D:\Scripts_Python\FGV\RAPP_2026\Resultados\20260625_RAPP"
 
 
 # Salva o arquivo GERAL
-caminho_geral = os.path.join(pasta_destino, "20260617_GERAL_analises_RAPP.xlsx")
+caminho_geral = os.path.join(pasta_destino, "20260625_GERAL_analises_RAPP.xlsx")
 
 with pd.ExcelWriter(caminho_geral) as writer:
     df_rapp.to_excel(writer, sheet_name='Base RAPP', index=False)
@@ -2043,4 +2043,282 @@ with pd.ExcelWriter(caminho_geral) as writer:
 
 
  
+#################################################################
+# GERAR 1 PLANILHA PARA CADA DIREC
+print("\nIniciando a criação das planilhas por DIREC...")
 
+# Obtém a lista de DIRECs únicas diretamente da coluna para evitar erros de digitação
+lista_direcs = df_rapp["DIREC"].dropna().unique()
+
+for d in lista_direcs:
+    print(f" -> Processando: {d}")
+
+    # Formata o nome do arquivo (ex: '01ª DIREC - NATAL' vira '01_DIREC_NATAL')
+    nome_limpo = (
+        str(d).replace("ª", "").replace(" - ", "_").replace(" ", "_")
+    )
+    caminho_direc = os.path.join(
+        pasta_destino, f"20260617_{nome_limpo}_analises_RAPP.xlsx"
+    )
+
+    # Passo chave: Filtra a base principal APENAS para a DIREC do loop atual
+    df_rapp_filtrado = df_rapp[df_rapp["DIREC"] == d]
+
+    # Recalcula todas as tabelas usando o DataFrame filtrado
+    direc_f = (
+        df_rapp_filtrado.groupby("DIREC")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_f = (
+        df_rapp_filtrado.groupby("COMPONENTE CURRICULAR")["CPF_Padronizado"]
+        .count()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes"}
+        )
+    )
+    serie_f = (
+        df_rapp_filtrado.groupby("SÉRIE")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    etapa_f = (
+        df_rapp_filtrado.groupby("ETAPA_RESUMIDA")["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    necessidade_especial_f = (
+        df_rapp_filtrado.groupby("CATEGORIA_NECESSIDADES ESPECIAIS")[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    serie_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "SÉRIE"])["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    etapa_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "ETAPA_RESUMIDA"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .count()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes"}
+        )
+    )
+    componente_serie_f = (
+        df_rapp_filtrado.groupby(["SÉRIE", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .count()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes"}
+        )
+    )
+    componente_etapa_f = (
+        df_rapp_filtrado.groupby(["ETAPA_RESUMIDA", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .count()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes"}
+        )
+    )
+    necessidade_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "CATEGORIA_NECESSIDADES ESPECIAIS"])[
+            "CPF_Padronizado"
+        ]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    necessidade_etapa_f = (
+        df_rapp_filtrado.groupby(
+            ["ETAPA_RESUMIDA", "CATEGORIA_NECESSIDADES ESPECIAIS"]
+        )["CPF_Padronizado"]
+        .nunique()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes Distintos"}
+        )
+    )
+    componente_serie_direc_f = (
+        df_rapp_filtrado.groupby(["DIREC", "SÉRIE", "COMPONENTE CURRICULAR"])[
+            "CPF_Padronizado"
+        ]
+        .count()
+        .reset_index()
+        .rename(
+            columns={"CPF_Padronizado": "Quantidade de Estudantes"}
+        )
+    )
+
+    # Grava o arquivo Excel da DIREC atual com todas as abas
+    with pd.ExcelWriter(caminho_direc) as writer:
+        df_rapp_filtrado.to_excel(writer, sheet_name="Base RAPP", index=False)
+        direc_f.to_excel(writer, sheet_name="DIREC", index=False)
+        componente_f.to_excel(writer, sheet_name="Componente", index=False)
+        serie_f.to_excel(writer, sheet_name="Serie", index=False)
+        etapa_f.to_excel(writer, sheet_name="Etapa", index=False)
+        necessidade_especial_f.to_excel(
+            writer, sheet_name="Neces. Especial", index=False
+        )
+        serie_direc_f.to_excel(writer, sheet_name="Serie e DIREC", index=False)
+        etapa_direc_f.to_excel(writer, sheet_name="Etapa e DIREC", index=False)
+        componente_direc_f.to_excel(
+            writer, sheet_name="Componente e DIREC", index=False
+        )
+        componente_serie_f.to_excel(
+            writer, sheet_name="Componente e Serie", index=False
+        )
+        componente_etapa_f.to_excel(
+            writer, sheet_name="Componente e Etapa", index=False
+        )
+        necessidade_direc_f.to_excel(
+            writer, sheet_name="Neces. Especial e DIREC", index=False
+        )
+        necessidade_etapa_f.to_excel(
+            writer, sheet_name="Neces. Especial e Etapa", index=False
+        )
+        componente_serie_direc_f.to_excel(
+            writer, sheet_name="Componente, Serie e DIREC", index=False
+        )
+
+
+print("\nTodo o processo foi concluído com sucesso!")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#################################### ANÁLISES ####################################
+# Só estudantes da 12ª DIREC
+df_12_direc = df_rapp[df_rapp['DIREC'] == '12ª DIREC - MOSSORÓ']
+
+# Estudantes por DIREC
+# Contagem de CPF_Padronizado distinto por DIREC
+direc = df_12_direc.groupby('DIREC')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por Componente Curricular
+# Contagem de CPF_Padronizado distinto por Componente Curricular
+componente = df_12_direc.groupby('COMPONENTE CURRICULAR')['CPF_Padronizado'].count().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes'})
+
+# Estudantes por Série
+# Contagem de CPF_Padronizado distinto por Série
+serie = df_12_direc.groupby('SÉRIE')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por Etapa de Ensino
+# Contagem de CPF_Padronizado distinto por Etapa de Ensino
+etapa = df_12_direc.groupby('ETAPA_RESUMIDA')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudantes por tipo de Necessidade Especial
+necessidade_especial = df_12_direc.groupby('CATEGORIA_NECESSIDADES ESPECIAIS')['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Série em cada DIREC
+serie_direc = df_12_direc.groupby(['DIREC', 'SÉRIE'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Etapa em cada DIREC
+etapa_direc = df_12_direc.groupby(['DIREC', 'ETAPA_RESUMIDA'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por componente em cada DIREC
+componente_direc = df_12_direc.groupby(['DIREC', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].count().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes'})
+
+# Estudante por Componente por Série
+componente_serie = df_12_direc.groupby(['SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].count().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes'})
+
+# Estudante por Componente por Etapa de Ensino
+componente_etapa = df_12_direc.groupby(['ETAPA_RESUMIDA', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].count().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes'})
+
+# Necessidade Especial por DIREC
+necessidade_direc = df_12_direc.groupby(['DIREC', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes'})
+
+# Necessidade Especial por ETAPA
+necessidade_etapa = df_12_direc.groupby(['ETAPA_RESUMIDA', 'CATEGORIA_NECESSIDADES ESPECIAIS'])['CPF_Padronizado'].nunique().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes Distintos'})
+
+# Estudante por Componente, por Série e por DIREC
+componente_serie_direc = df_12_direc.groupby(['DIREC', 'SÉRIE', 'COMPONENTE CURRICULAR'])['CPF_Padronizado'].count().reset_index().rename(columns={'CPF_Padronizado': 'Quantidade de Estudantes'})
+
+
+# Caminho da pasta onde os arquivos serão salvos
+pasta_destino = r"D:\Scripts_Python\FGV\RAPP_2026\Resultados\20260625_RAPP"
+
+
+# Salva o arquivo GERAL
+caminho_geral = os.path.join(pasta_destino, "20260617_12_DIREC_MOSSORÓ_analises_RAPP.xlsx")
+
+with pd.ExcelWriter(caminho_geral) as writer:
+    df_12_direc.to_excel(writer, sheet_name='Base RAPP', index=False)
+    direc.to_excel(writer, sheet_name='DIREC', index=False)
+    componente.to_excel(writer, sheet_name='Componente', index=False)
+    serie.to_excel(writer, sheet_name='Serie', index=False)
+    etapa.to_excel(writer, sheet_name='Etapa', index=False)
+    necessidade_especial.to_excel(writer, sheet_name='Neces. Especial', index=False)
+    serie_direc.to_excel(writer, sheet_name='Serie e DIREC', index=False)
+    etapa_direc.to_excel(writer, sheet_name='Etapa e DIREC', index=False)
+    componente_direc.to_excel(writer, sheet_name='Componente e DIREC', index=False)
+    componente_serie.to_excel(writer, sheet_name='Componente e Serie', index=False)
+    componente_etapa.to_excel(writer, sheet_name='Componente e Etapa', index=False)
+    necessidade_direc.to_excel(writer, sheet_name='Neces. Especial e DIREC', index=False)
+    necessidade_etapa.to_excel(writer, sheet_name='Neces. Especial e Etapa', index=False)
+    componente_serie_direc.to_excel(writer, sheet_name='Componente, Serie e DIREC', index=False)
